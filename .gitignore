@@ -1,0 +1,29 @@
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.spec
+
+# PyInstaller build artifacts
+build/
+dist/
+
+# Large Model files (Github rejects >100MB)
+models/*.gguf
+models/*
+
+# Sensitive user config & cache data
+data/config.json
+data/history.json
+data/summary_cache.json
+data/
+
+# OS specific
+.DS_Store
+Thumbs.db
