@@ -10,6 +10,7 @@ from PIL import Image
 import pystray
 from pystray import MenuItem as item
 from core_logic import scan_emails, send_telegram
+from imap_logic import scan_emails_imap
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -132,7 +133,13 @@ class EmailReminderApp(ctk.CTk):
             "tele_token": "", "tele_chat_id": "", "api_key": "",
             "ai_engine": "Offline", "interval_mins": "15",
             "senders": [], "folders": ["Inbox"], "cc_emails": [],
-            "keywords": []
+            "keywords": [],
+            "email_source": "Outlook (Local)",
+            "imap_server": "",
+            "imap_port": "993",
+            "imap_user": "",
+            "imap_password": "",
+            "imap_ssl": True
         }
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -154,6 +161,14 @@ class EmailReminderApp(ctk.CTk):
         self.config["ai_engine"] = self.combo_ai.get()
         self.config["interval_mins"] = self.entry_interval.get().strip()
         
+        # Cấu hình Webmail IMAP
+        self.config["email_source"] = self.combo_source.get()
+        self.config["imap_server"] = self.entry_imap_server.get().strip()
+        self.config["imap_port"] = self.entry_imap_port.get().strip()
+        self.config["imap_user"] = self.entry_imap_user.get().strip()
+        self.config["imap_password"] = self.entry_imap_password.get().strip()
+        self.config["imap_ssl"] = self.cb_imap_ssl.get()
+        
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(self.config, f, ensure_ascii=False, indent=4)
         self.log("Đã lưu cấu hình thành công.")
@@ -163,6 +178,75 @@ class EmailReminderApp(ctk.CTk):
         frame = ctk.CTkScrollableFrame(self.tab_settings, fg_color="transparent")
         frame.pack(fill="both", expand=True, padx=10, pady=10)
         
+        # --- LỰA CHỌN NGUỒN QUÉT MAIL ---
+        self.source_container = ctk.CTkFrame(frame, fg_color="transparent")
+        self.source_container.pack(anchor="w", fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(self.source_container, text="Nguồn quét Email:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w")
+        self.combo_source = ctk.CTkOptionMenu(
+            self.source_container,
+            values=["Outlook (Local)", "Webmail / IMAP (Server)"],
+            command=self.on_source_changed,
+            fg_color=COLOR_PRIMARY_BLUE,
+            button_color=COLOR_HOVER_BLUE,
+            button_hover_color=COLOR_PRIMARY_BLUE,
+            dropdown_fg_color="#FFFFFF",
+            dropdown_text_color=COLOR_TEXT_MAIN,
+            dropdown_hover_color="#E2E8F0"
+        )
+        self.combo_source.pack(anchor="w", pady=(2, 10))
+        self.combo_source.set(self.config.get("email_source", "Outlook (Local)"))
+
+        # --- KHUNG CẤU HÌNH IMAP (Ẩn/Hiện động) ---
+        self.imap_config_frame = ctk.CTkFrame(self.source_container, fg_color="#F1F5F9", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+        
+        ctk.CTkLabel(self.imap_config_frame, text="⚙️ CẤU HÌNH WEBMAIL / IMAP", font=("Segoe UI", 12, "bold"), text_color=COLOR_PRIMARY_BLUE).pack(anchor="w", padx=12, pady=(8, 4))
+
+        ctk.CTkLabel(self.imap_config_frame, text="IMAP Server (vd: mail.vnpt.vn, imap.gmail.com):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
+        self.entry_imap_server = ctk.CTkEntry(self.imap_config_frame, width=416, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_imap_server.pack(anchor="w", padx=12, pady=(2, 8))
+        self.entry_imap_server.insert(0, self.config.get("imap_server", ""))
+
+        port_ssl_row = ctk.CTkFrame(self.imap_config_frame, fg_color="transparent")
+        port_ssl_row.pack(anchor="w", padx=12, pady=(2, 8))
+
+        ctk.CTkLabel(port_ssl_row, text="Port: ", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left")
+        self.entry_imap_port = ctk.CTkEntry(port_ssl_row, width=80, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_imap_port.pack(side="left", padx=(0, 20))
+        self.entry_imap_port.insert(0, str(self.config.get("imap_port", "993")))
+
+        self.cb_imap_ssl = ctk.CTkCheckBox(port_ssl_row, text="Sử dụng SSL/TLS", text_color=COLOR_TEXT_MAIN, font=("Segoe UI", 11, "bold"))
+        self.cb_imap_ssl.pack(side="left")
+        if self.config.get("imap_ssl", True):
+            self.cb_imap_ssl.select()
+        else:
+            self.cb_imap_ssl.deselect()
+
+        ctk.CTkLabel(self.imap_config_frame, text="Tài khoản Email (Tên đăng nhập):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
+        self.entry_imap_user = ctk.CTkEntry(self.imap_config_frame, width=416, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_imap_user.pack(anchor="w", padx=12, pady=(2, 8))
+        self.entry_imap_user.insert(0, self.config.get("imap_user", ""))
+
+        ctk.CTkLabel(self.imap_config_frame, text="Mật khẩu Webmail (hoặc App Password):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
+        self.entry_imap_password = ctk.CTkEntry(self.imap_config_frame, width=416, show="*", fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_imap_password.pack(anchor="w", padx=12, pady=(2, 8))
+        self.entry_imap_password.insert(0, self.config.get("imap_password", ""))
+
+        self.btn_test_imap = ctk.CTkButton(
+            self.imap_config_frame,
+            text="📧 Test kết nối Webmail",
+            fg_color=COLOR_ACCENT_BLUE,
+            hover_color="#0369A1",
+            font=("Segoe UI", 11, "bold"),
+            command=self.test_imap_connection
+        )
+        self.btn_test_imap.pack(anchor="w", padx=12, pady=(4, 10))
+
+        if self.config.get("email_source", "Outlook (Local)") == "Webmail / IMAP (Server)":
+            self.imap_config_frame.pack(anchor="w", fill="x", pady=(5, 10))
+
+        ctk.CTkFrame(frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=(5, 15))
+
         ctk.CTkLabel(frame, text="Telegram Bot Token:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w")
         self.entry_tele_token = ctk.CTkEntry(frame, width=440, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
         self.entry_tele_token.pack(anchor="w", pady=(2, 10))
@@ -405,12 +489,58 @@ class EmailReminderApp(ctk.CTk):
             interval_sec = 900
 
         while not self.stop_event.is_set():
-            self.after(0, self.log, f"Đang quét hòm thư... (AI: {self.config.get('ai_engine')})")
-            scan_emails(self.config, lambda msg: self.after(0, self.log, msg))
+            source = self.config.get("email_source", "Outlook (Local)")
+            self.after(0, self.log, f"Đang quét hòm thư... ({source} | AI: {self.config.get('ai_engine')})")
+            
+            if source == "Webmail / IMAP (Server)":
+                scan_emails_imap(self.config, lambda msg: self.after(0, self.log, msg))
+            else:
+                scan_emails(self.config, lambda msg: self.after(0, self.log, msg))
             
             for _ in range(interval_sec):
                 if self.stop_event.is_set(): break
                 time.sleep(1)
+
+    def on_source_changed(self, value):
+        if value == "Webmail / IMAP (Server)":
+            self.imap_config_frame.pack(anchor="w", fill="x", pady=(5, 10))
+        else:
+            self.imap_config_frame.pack_forget()
+
+    def test_imap_connection(self):
+        server = self.entry_imap_server.get().strip()
+        port_str = self.entry_imap_port.get().strip()
+        user = self.entry_imap_user.get().strip()
+        password = self.entry_imap_password.get().strip()
+        use_ssl = self.cb_imap_ssl.get()
+
+        if not server or not user or not password:
+            messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng nhập đầy đủ IMAP Server, Tài khoản và Mật khẩu!")
+            return
+
+        self.btn_test_imap.configure(text="⏳ Đang kết nối...", state="disabled")
+        self.log(f"Đang kiểm tra kết nối tới IMAP server {server}...")
+
+        def _test():
+            try:
+                import imaplib
+                port = int(port_str) if port_str else (993 if use_ssl else 143)
+                if use_ssl:
+                    mail = imaplib.IMAP4_SSL(server, port, timeout=12)
+                else:
+                    mail = imaplib.IMAP4(server, port, timeout=12)
+                
+                mail.login(user, password)
+                mail.logout()
+                self.after(0, self.log, f"✅ Kết nối thành công tới Webmail / IMAP ({server})!")
+                self.after(0, lambda: messagebox.showinfo("Kết Quả Webmail", f"✅ Kết nối tới Server Webmail ({server}) thành công!"))
+            except Exception as e:
+                self.after(0, self.log, f"❌ Lỗi kết nối IMAP tới {server}: {e}")
+                self.after(0, lambda: messagebox.showerror("Lỗi Kết Nối", f"❌ Không thể kết nối tới Webmail:\n{e}"))
+            finally:
+                self.after(0, lambda: self.btn_test_imap.configure(text="📧 Test kết nối Webmail", state="normal"))
+
+        threading.Thread(target=_test, daemon=True).start()
 
     def test_telegram_connection(self):
         token = self.entry_tele_token.get().strip()

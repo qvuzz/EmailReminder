@@ -1,12 +1,14 @@
-﻿# 📬 Email Reminder v1.0 (VNPT AI Assistant)
+# 📬 Email Reminder v1.1 (VNPT AI Assistant)
 
-> **Ứng dụng tự động quét email từ Microsoft Outlook, tóm tắt nội dung bằng AI (Offline / Online) và gửi thông báo trực tiếp qua Telegram.**
+> **Ứng dụng tự động quét email từ Microsoft Outlook hoặc Máy chủ Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online) và gửi thông báo trực tiếp qua Telegram.**
 
 ---
 
 ## 🌟 Tính năng nổi bật
 
-- 📥 **Tích hợp sâu với Microsoft Outlook:** Tự động đọc email theo thời gian thực hoặc định kỳ (Inbox, Sent Items, thư mục con).
+- 🌐 **Hỗ trợ đa nguồn Email (Dual Source):**
+  - **Microsoft Outlook (Local):** Đọc trực tiếp từ ứng dụng Outlook trên máy tính thông qua Windows MAPI.
+  - **Webmail / IMAP (Server):** Kết nối trực tiếp máy chủ thư điện tử (VNPT Webmail, Gmail, Zimbra, Yahoo...) qua giao thức IMAP bảo mật (SSL/TLS), không phụ thuộc vào ứng dụng Outlook. Hỗ trợ giải mã tên thư mục tiếng Việt (Modified UTF-7).
 - 🎯 **Bộ lọc linh hoạt (Multi-filter):**
   - Lọc theo **Người gửi (Senders)**.
   - Lọc theo **Email CC**.
@@ -28,7 +30,8 @@
 ```text
 EmailReminder/
 ├── app.py                  # Giao diện chính của ứng dụng (CustomTkinter & System Tray)
-├── core_logic.py           # Logic cốt lõi: Quét Outlook, lọc email, gửi Telegram
+├── core_logic.py           # Logic quét Outlook qua MAPI, lọc email, gửi Telegram
+├── imap_logic.py           # Logic quét Webmail trực tiếp qua IMAP Server (SSL/TLS)
 ├── ai_engines.py           # Kết nối các Cloud AI API (Gemini, OpenAI, Claude, DeepSeek...)
 ├── offline_ai.py           # Bộ giải mã mô hình AI Offline (llama-cpp-python)
 ├── make_icon.py            # Script tự tạo icon đồ họa cho ứng dụng
@@ -45,8 +48,8 @@ EmailReminder/
 ## 🚀 Hướng dẫn cài đặt & Chạy ứng dụng
 
 ### 1. Yêu cầu hệ thống
-- Hệ điều hành: **Windows 10 / 11** (64-bit).
-- Đã cài đặt **Microsoft Outlook** (desktop app) và đang đăng nhập tài khoản mail.
+- Hệ điều hành: **Windows 10 / 11** (hoặc Linux/macOS nếu sử dụng chế độ IMAP).
+- Nếu dùng nguồn Outlook: Cần cài đặt **Microsoft Outlook** và đang đăng nhập tài khoản mail.
 - **Python 3.10 - 3.14** (khuyến nghị Python 3.11+).
 
 ### 2. Cài đặt môi trường
@@ -82,7 +85,13 @@ python app.py
 
 ## ⚙️ Hướng dẫn cấu hình
 
-1. **Tab Cài đặt API:**
+1. **Tab Cài đặt API & Nguồn Email:**
+   - **Nguồn đọc Email:** Chọn `Outlook (Local)` hoặc `Webmail / IMAP (Server)`.
+   - **Cấu hình Webmail / IMAP (nếu chọn IMAP):**
+     - *IMAP Server:* Nhập máy chủ (vd: `mail.vnpt.vn`, `imap.gmail.com`...).
+     - *Port & SSL:* Thường là `993` với `SSL/TLS`.
+     - *Tài khoản & Mật khẩu:* Tên đăng nhập email và mật khẩu (với Gmail cần dùng **Mật khẩu ứng dụng / App Password** 16 ký tự).
+     - Nhấn nút **📧 Test kết nối Webmail** để kiểm tra đăng nhập.
    - **Telegram Bot Token & Chat ID:** Tạo Bot qua `@BotFather` trên Telegram, lấy Chat ID từ `@userinfobot` hoặc group ID, nhập vào và bấm **🔔 Test Telegram** để kiểm tra kết nối.
    - **AI Engine:** Chọn `Offline (Local llama.cpp)` hoặc các Cloud Engine (`Gemini`, `OpenAI`, `Claude`, `DeepSeek`...) và nhập API Key tương ứng.
    - **Chu kỳ quét:** Thiết lập khoảng thời gian lặp lại quét email (mặc định 15 phút).
@@ -114,3 +123,4 @@ Sau khi hoàn tất, file thực thi sẽ nằm tại: **`dist\Email_Reminder.ex
 
 - **Tác giả:** quangvu@vnpt.vn
 - **Bản quyền:** © 2026 VNPT AI Assistant. All rights reserved.
+

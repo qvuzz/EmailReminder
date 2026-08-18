@@ -1,6 +1,10 @@
-import win32com.client
-import win32timezone
-import pythoncom
+try:
+    import win32com.client
+    import win32timezone
+    import pythoncom
+    HAS_WIN32 = True
+except ImportError:
+    HAS_WIN32 = False
 import json
 import os
 import requests
@@ -198,6 +202,9 @@ def send_telegram_report(token, chat_id, found_emails, log_callback):
 
 
 def scan_emails(config, log_callback):
+    if not HAS_WIN32:
+        log_callback("❌ Lỗi: Chức năng quét Outlook chỉ hoạt động trên hệ điều hành Windows.")
+        return
     pythoncom.CoInitialize()
     try:
         outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
