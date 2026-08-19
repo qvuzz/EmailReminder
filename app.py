@@ -10,7 +10,8 @@ from PIL import Image
 import pystray
 from pystray import MenuItem as item
 from core_logic import scan_emails, send_telegram
-from imap_logic import scan_emails_imap
+from imap_logic import scan_emails_imap, test_imap_connection_logic
+import uuid
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -48,10 +49,189 @@ def get_resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
+
+class IMAPAccountModal(ctk.CTkToplevel):
+    """Cửa sổ Popup thêm / sửa tài khoản Webmail IMAP"""
+    def __init__(self, parent, account_data=None, on_save_callback=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.account_data = account_data or {}
+        self.on_save_callback = on_save_callback
+        self.is_edit = bool(self.account_data.get("id"))
+        
+        self.title("Chỉnh sửa tài khoản Webmail" if self.is_edit else "Thêm tài khoản Webmail mới")
+        self.geometry("520x490")
+        self.resizable(False, False)
+        self.configure(fg_color=COLOR_BG_LIGHT)
+        self.attributes("-topmost", True)
+        self.grab_set()
+
+        # Căn giữa so với cửa sổ chính
+        try:
+            self.update_idletasks()
+            x = parent.winfo_x() + (parent.winfo_width() - 520) // 2
+            y = parent.winfo_y() + (parent.winfo_height() - 490) // 2
+            self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        except Exception:
+            pass
+
+        container = ctk.CTkFrame(self, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        container.pack(fill="both", expand=True, padx=16, pady=16)
+
+        lbl_h = ctk.CTkLabel(
+            container, 
+            text="✏️ CHỈNH SỬA TÀI KHOẢN WEBMAIL" if self.is_edit else "➕ THÊM TÀI KHOẢN WEBMAIL", 
+            font=("Segoe UI", 14, "bold"), 
+            text_color=COLOR_PRIMARY_BLUE
+        )
+        lbl_h.pack(anchor="w", padx=16, pady=(14, 10))
+
+        # 1. Tên gợi nhớ
+        ctk.CTkLabel(container, text="Tên gợi nhớ (ví dụ: VNPT Công việc, Gmail Cá nhân):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=16)
+        self.entry_name = ctk.CTkEntry(container, width=450, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_name.pack(anchor="w", padx=16, pady=(2, 8))
+        self.entry_name.insert(0, self.account_data.get("name", ""))
+
+        # 2. Server
+        ctk.CTkLabel(container, text="IMAP Server (ví dụ: email.vnpt.vn, imap.gmail.com):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=16)
+        self.entry_server = ctk.CTkEntry(container, width=450, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_server.pack(anchor="w", padx=16, pady=(2, 8))
+        self.entry_server.insert(0, self.account_data.get("server", ""))
+
+        # 3. Port & SSL
+        port_row = ctk.CTkFrame(container, fg_color="transparent")
+        port_row.pack(anchor="w", padx=16, pady=(2, 8))
+        ctk.CTkLabel(port_row, text="Port: ", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left")
+        self.entry_port = ctk.CTkEntry(port_row, width=80, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_port.pack(side="left", padx=(0, 20))
+        self.entry_port.insert(0, str(self.account_data.get("port", "993")))
+
+        self.cb_ssl = ctk.CTkCheckBox(port_row, text="Sử dụng SSL/TLS (Khuyên dùng)", text_color=COLOR_TEXT_MAIN, font=("Segoe UI", 11, "bold"))
+        self.cb_ssl.pack(side="left")
+        if self.account_data.get("ssl", True):
+            self.cb_ssl.select()
+        else:
+            self.cb_ssl.deselect()
+
+        # 4. User
+        ctk.CTkLabel(container, text="Tài khoản / Email đăng nhập:", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=16)
+        self.entry_user = ctk.CTkEntry(container, width=450, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_user.pack(anchor="w", padx=16, pady=(2, 8))
+        self.entry_user.insert(0, self.account_data.get("user", ""))
+
+        # 5. Password
+        ctk.CTkLabel(container, text="Mật khẩu Webmail (hoặc App Password):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=16)
+        pwd_row = ctk.CTkFrame(container, fg_color="transparent")
+        pwd_row.pack(anchor="w", padx=16, pady=(2, 12))
+        self.entry_pwd = ctk.CTkEntry(pwd_row, width=390, show="*", fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+        self.entry_pwd.pack(side="left", padx=(0, 10))
+        self.entry_pwd.insert(0, self.account_data.get("password", ""))
+
+        self.show_pwd = False
+        self.btn_toggle_pwd = ctk.CTkButton(pwd_row, text="👁️", width=45, fg_color="#E2E8F0", text_color=COLOR_TEXT_MAIN, hover_color="#CBD5E1", command=self.toggle_password)
+        self.btn_toggle_pwd.pack(side="left")
+
+        # Action Buttons
+        btn_box = ctk.CTkFrame(container, fg_color="transparent")
+        btn_box.pack(fill="x", padx=16, pady=(10, 10))
+
+        self.btn_test = ctk.CTkButton(
+            btn_box, 
+            text="🧪 Test kết nối", 
+            fg_color=COLOR_ACCENT_BLUE, 
+            hover_color="#0369A1", 
+            font=("Segoe UI", 11, "bold"),
+            command=self.test_connection
+        )
+        self.btn_test.pack(side="left", padx=(0, 10))
+
+        btn_save = ctk.CTkButton(
+            btn_box, 
+            text="💾 Lưu tài khoản", 
+            fg_color=COLOR_PRIMARY_BLUE, 
+            hover_color=COLOR_HOVER_BLUE, 
+            font=("Segoe UI", 11, "bold"),
+            command=self.save_account
+        )
+        btn_save.pack(side="left", padx=(0, 10))
+
+        btn_cancel = ctk.CTkButton(
+            btn_box, 
+            text="Hủy", 
+            fg_color="#E2E8F0", 
+            text_color=COLOR_TEXT_MAIN, 
+            hover_color="#CBD5E1", 
+            font=("Segoe UI", 11, "bold"),
+            width=70,
+            command=self.destroy
+        )
+        btn_cancel.pack(side="right")
+
+    def toggle_password(self):
+        self.show_pwd = not self.show_pwd
+        self.entry_pwd.configure(show="" if self.show_pwd else "*")
+
+    def test_connection(self):
+        server = self.entry_server.get().strip()
+        port_str = self.entry_port.get().strip()
+        user = self.entry_user.get().strip()
+        password = self.entry_pwd.get().strip()
+        use_ssl = bool(self.cb_ssl.get())
+
+        if not server or not user or not password:
+            messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng nhập đầy đủ Server, Tài khoản và Mật khẩu trước khi Test!", parent=self)
+            return
+
+        self.btn_test.configure(text="⏳ Đang test...", state="disabled")
+
+        def _run():
+            try:
+                ok, msg = test_imap_connection_logic(server, port_str, user, password, use_ssl)
+                if ok:
+                    self.after(0, lambda: messagebox.showinfo("Kết Quả Webmail", f"✅ Kết nối thành công tới {server}!\n{msg}", parent=self))
+                else:
+                    self.after(0, lambda: messagebox.showerror("Lỗi Kết Nối", f"❌ Kết nối thất bại:\n{msg}", parent=self))
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Lỗi Kết Nối", f"❌ Không thể kết nối tới Webmail:\n{e}", parent=self))
+            finally:
+                self.after(0, lambda: self.btn_test.configure(text="🧪 Test kết nối", state="normal"))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def save_account(self):
+        name = self.entry_name.get().strip()
+        server = self.entry_server.get().strip()
+        port_str = self.entry_port.get().strip()
+        user = self.entry_user.get().strip()
+        password = self.entry_pwd.get().strip()
+        use_ssl = bool(self.cb_ssl.get())
+
+        if not server or not user or not password:
+            messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng nhập đầy đủ Server, Tài khoản và Mật khẩu!", parent=self)
+            return
+
+        if not name:
+            name = user.split("@")[0] if "@" in user else "Webmail"
+
+        acc_id = self.account_data.get("id") or str(uuid.uuid4())[:8]
+        new_data = {
+            "id": acc_id,
+            "name": name,
+            "server": server,
+            "port": port_str or "993",
+            "user": user,
+            "password": password,
+            "ssl": use_ssl
+        }
+
+        if self.on_save_callback:
+            self.on_save_callback(new_data, self.is_edit)
+        self.destroy()
+
 class EmailReminderApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Email Reminder v1.0")
+        self.title("Email Reminder v1.2")
         self.geometry("900x680")
         self.configure(fg_color=COLOR_BG_LIGHT)
         # --- GẮN LOGO VÀO CỬA SỔ & TASKBAR ---
@@ -79,7 +259,7 @@ class EmailReminderApp(ctk.CTk):
         
         lbl_title = ctk.CTkLabel(
             self.header_frame, 
-            text="📬 Email Reminder v1.0", 
+            text="📬 Email Reminder v1.2", 
             font=("Segoe UI", 15, "bold"), 
             text_color="#FFFFFF"
         )
@@ -135,15 +315,25 @@ class EmailReminderApp(ctk.CTk):
             "senders": [], "folders": ["Inbox"], "cc_emails": [],
             "keywords": [],
             "email_source": "Outlook (Local)",
-            "imap_server": "",
-            "imap_port": "993",
-            "imap_user": "",
-            "imap_password": "",
-            "imap_ssl": True
+            "imap_accounts": []
         }
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                default.update(json.load(f))
+                loaded = json.load(f)
+                default.update(loaded)
+
+        # Tự động di chuyển cấu hình tài khoản đơn lẻ cũ sang mảng imap_accounts
+        if not default.get("imap_accounts") and default.get("imap_server"):
+            srv = default.get("imap_server", "")
+            default["imap_accounts"] = [{
+                "id": "acc_default",
+                "name": "VNPT Webmail" if "vnpt" in srv.lower() else "Webmail",
+                "server": srv,
+                "port": str(default.get("imap_port", "993")),
+                "user": default.get("imap_user", ""),
+                "password": default.get("imap_password", ""),
+                "ssl": bool(default.get("imap_ssl", True))
+            }]
         return default
 
     def save_config(self):
@@ -160,14 +350,7 @@ class EmailReminderApp(ctk.CTk):
         self.config["api_key"] = raw_key
         self.config["ai_engine"] = self.combo_ai.get()
         self.config["interval_mins"] = self.entry_interval.get().strip()
-        
-        # Cấu hình Webmail IMAP
         self.config["email_source"] = self.combo_source.get()
-        self.config["imap_server"] = self.entry_imap_server.get().strip()
-        self.config["imap_port"] = self.entry_imap_port.get().strip()
-        self.config["imap_user"] = self.entry_imap_user.get().strip()
-        self.config["imap_password"] = self.entry_imap_password.get().strip()
-        self.config["imap_ssl"] = self.cb_imap_ssl.get()
         
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(self.config, f, ensure_ascii=False, indent=4)
@@ -197,50 +380,35 @@ class EmailReminderApp(ctk.CTk):
         self.combo_source.pack(anchor="w", pady=(2, 10))
         self.combo_source.set(self.config.get("email_source", "Outlook (Local)"))
 
-        # --- KHUNG CẤU HÌNH IMAP (Ẩn/Hiện động) ---
-        self.imap_config_frame = ctk.CTkFrame(self.source_container, fg_color="#F1F5F9", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+        # --- KHUNG QUẢN LÝ TÀI KHOẢN IMAP (Giao diện thẻ gọn gàng) ---
+        self.imap_config_frame = ctk.CTkFrame(self.source_container, fg_color="#F1F5F9", border_width=1, border_color=COLOR_BORDER, corner_radius=8)
         
-        ctk.CTkLabel(self.imap_config_frame, text="⚙️ CẤU HÌNH WEBMAIL / IMAP", font=("Segoe UI", 12, "bold"), text_color=COLOR_PRIMARY_BLUE).pack(anchor="w", padx=12, pady=(8, 4))
+        imap_header_row = ctk.CTkFrame(self.imap_config_frame, fg_color="transparent")
+        imap_header_row.pack(fill="x", padx=12, pady=(10, 6))
 
-        ctk.CTkLabel(self.imap_config_frame, text="IMAP Server (vd: mail.vnpt.vn, imap.gmail.com):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
-        self.entry_imap_server = ctk.CTkEntry(self.imap_config_frame, width=416, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
-        self.entry_imap_server.pack(anchor="w", padx=12, pady=(2, 8))
-        self.entry_imap_server.insert(0, self.config.get("imap_server", ""))
+        ctk.CTkLabel(
+            imap_header_row, 
+            text="⚙️ DANH SÁCH TÀI KHOẢN WEBMAIL / IMAP", 
+            font=("Segoe UI", 12, "bold"), 
+            text_color=COLOR_PRIMARY_BLUE
+        ).pack(side="left")
 
-        port_ssl_row = ctk.CTkFrame(self.imap_config_frame, fg_color="transparent")
-        port_ssl_row.pack(anchor="w", padx=12, pady=(2, 8))
-
-        ctk.CTkLabel(port_ssl_row, text="Port: ", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left")
-        self.entry_imap_port = ctk.CTkEntry(port_ssl_row, width=80, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
-        self.entry_imap_port.pack(side="left", padx=(0, 20))
-        self.entry_imap_port.insert(0, str(self.config.get("imap_port", "993")))
-
-        self.cb_imap_ssl = ctk.CTkCheckBox(port_ssl_row, text="Sử dụng SSL/TLS", text_color=COLOR_TEXT_MAIN, font=("Segoe UI", 11, "bold"))
-        self.cb_imap_ssl.pack(side="left")
-        if self.config.get("imap_ssl", True):
-            self.cb_imap_ssl.select()
-        else:
-            self.cb_imap_ssl.deselect()
-
-        ctk.CTkLabel(self.imap_config_frame, text="Tài khoản Email (Tên đăng nhập):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
-        self.entry_imap_user = ctk.CTkEntry(self.imap_config_frame, width=416, fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
-        self.entry_imap_user.pack(anchor="w", padx=12, pady=(2, 8))
-        self.entry_imap_user.insert(0, self.config.get("imap_user", ""))
-
-        ctk.CTkLabel(self.imap_config_frame, text="Mật khẩu Webmail (hoặc App Password):", font=("Segoe UI", 11, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w", padx=12)
-        self.entry_imap_password = ctk.CTkEntry(self.imap_config_frame, width=416, show="*", fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
-        self.entry_imap_password.pack(anchor="w", padx=12, pady=(2, 8))
-        self.entry_imap_password.insert(0, self.config.get("imap_password", ""))
-
-        self.btn_test_imap = ctk.CTkButton(
-            self.imap_config_frame,
-            text="📧 Test kết nối Webmail",
-            fg_color=COLOR_ACCENT_BLUE,
-            hover_color="#0369A1",
+        btn_add_acc = ctk.CTkButton(
+            imap_header_row,
+            text="➕ Thêm tài khoản",
+            fg_color=COLOR_PRIMARY_BLUE,
+            hover_color=COLOR_HOVER_BLUE,
             font=("Segoe UI", 11, "bold"),
-            command=self.test_imap_connection
+            width=130,
+            command=self.open_add_imap_account_modal
         )
-        self.btn_test_imap.pack(anchor="w", padx=12, pady=(4, 10))
+        btn_add_acc.pack(side="right")
+
+        # Container chứa các thẻ tài khoản
+        self.imap_accounts_list_frame = ctk.CTkFrame(self.imap_config_frame, fg_color="transparent")
+        self.imap_accounts_list_frame.pack(fill="x", padx=12, pady=(0, 10))
+
+        self.render_imap_accounts_list()
 
         if self.config.get("email_source", "Outlook (Local)") == "Webmail / IMAP (Server)":
             self.imap_config_frame.pack(anchor="w", fill="x", pady=(5, 10))
@@ -507,38 +675,149 @@ class EmailReminderApp(ctk.CTk):
         else:
             self.imap_config_frame.pack_forget()
 
-    def test_imap_connection(self):
-        server = self.entry_imap_server.get().strip()
-        port_str = self.entry_imap_port.get().strip()
-        user = self.entry_imap_user.get().strip()
-        password = self.entry_imap_password.get().strip()
-        use_ssl = self.cb_imap_ssl.get()
+    def render_imap_accounts_list(self):
+        """Hiển thị danh sách các tài khoản Webmail dưới dạng các thẻ đẹp mắt"""
+        for child in self.imap_accounts_list_frame.winfo_children():
+            child.destroy()
 
-        if not server or not user or not password:
-            messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng nhập đầy đủ IMAP Server, Tài khoản và Mật khẩu!")
+        accounts = self.config.get("imap_accounts", [])
+        if not accounts:
+            empty_box = ctk.CTkFrame(self.imap_accounts_list_frame, fg_color="#FFFFFF", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            empty_box.pack(fill="x", pady=5)
+            ctk.CTkLabel(
+                empty_box, 
+                text="ℹ️ Chưa có tài khoản Webmail nào. Hãy nhấn nút '➕ Thêm tài khoản' ở trên để thêm email.",
+                font=("Segoe UI", 11, "italic"),
+                text_color=COLOR_TEXT_MUTED
+            ).pack(padx=16, pady=12)
             return
 
-        self.btn_test_imap.configure(text="⏳ Đang kết nối...", state="disabled")
-        self.log(f"Đang kiểm tra kết nối tới IMAP server {server}...")
+        for acc in accounts:
+            card = ctk.CTkFrame(self.imap_accounts_list_frame, fg_color="#FFFFFF", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            card.pack(fill="x", pady=4)
+
+            # Khối thông tin bên trái
+            left_info = ctk.CTkFrame(card, fg_color="transparent")
+            left_info.pack(side="left", padx=12, pady=8, fill="x", expand=True)
+
+            acc_name = acc.get("name", "Webmail")
+            acc_user = acc.get("user", "")
+            acc_srv = acc.get("server", "")
+            acc_port = acc.get("port", "993")
+            ssl_badge = "🔒 SSL" if acc.get("ssl", True) else "🔓 No SSL"
+
+            title_row = ctk.CTkFrame(left_info, fg_color="transparent")
+            title_row.pack(anchor="w")
+            ctk.CTkLabel(
+                title_row, 
+                text=f"🏷️ {acc_name}", 
+                font=("Segoe UI", 12, "bold"), 
+                text_color=COLOR_PRIMARY_BLUE
+            ).pack(side="left")
+
+            detail_text = f"📧 {acc_user}   •   🌐 {acc_srv}:{acc_port} ({ssl_badge})"
+            ctk.CTkLabel(
+                left_info, 
+                text=detail_text, 
+                font=("Segoe UI", 10), 
+                text_color=COLOR_TEXT_MUTED
+            ).pack(anchor="w", pady=(2, 0))
+
+            # Khối nút thao tác bên phải
+            action_row = ctk.CTkFrame(card, fg_color="transparent")
+            action_row.pack(side="right", padx=10, pady=8)
+
+            btn_test = ctk.CTkButton(
+                action_row,
+                text="🧪 Test",
+                width=55,
+                fg_color=COLOR_ACCENT_BLUE,
+                hover_color="#0369A1",
+                font=("Segoe UI", 10, "bold")
+            )
+            btn_test.configure(command=lambda a=acc, b=btn_test: self.test_single_account_card(a, b))
+            btn_test.pack(side="left", padx=(0, 6))
+
+            btn_edit = ctk.CTkButton(
+                action_row,
+                text="✏️ Sửa",
+                width=55,
+                fg_color="#0284C7",
+                hover_color="#0369A1",
+                font=("Segoe UI", 10, "bold"),
+                command=lambda aid=acc.get("id"): self.open_edit_imap_account_modal(aid)
+            )
+            btn_edit.pack(side="left", padx=(0, 6))
+
+            btn_del = ctk.CTkButton(
+                action_row,
+                text="🗑️",
+                width=35,
+                fg_color=COLOR_RED_BTN,
+                hover_color=COLOR_RED_HOVER,
+                font=("Segoe UI", 10, "bold"),
+                command=lambda aid=acc.get("id"), aname=acc_name: self.delete_imap_account(aid, aname)
+            )
+            btn_del.pack(side="left")
+
+    def open_add_imap_account_modal(self):
+        def on_save(new_acc, is_edit):
+            if "imap_accounts" not in self.config:
+                self.config["imap_accounts"] = []
+            self.config["imap_accounts"].append(new_acc)
+            self.save_config()
+            self.render_imap_accounts_list()
+            self.log(f"Đã thêm tài khoản Webmail '{new_acc.get('name')}'.")
+        IMAPAccountModal(self, on_save_callback=on_save)
+
+    def open_edit_imap_account_modal(self, acc_id):
+        accounts = self.config.get("imap_accounts", [])
+        acc = next((a for a in accounts if a.get("id") == acc_id), None)
+        if not acc:
+            return
+
+        def on_save(updated_acc, is_edit):
+            for i, a in enumerate(self.config.get("imap_accounts", [])):
+                if a.get("id") == updated_acc.get("id"):
+                    self.config["imap_accounts"][i] = updated_acc
+                    break
+            self.save_config()
+            self.render_imap_accounts_list()
+            self.log(f"Đã cập nhật tài khoản Webmail '{updated_acc.get('name')}'.")
+
+        IMAPAccountModal(self, account_data=acc, on_save_callback=on_save)
+
+    def delete_imap_account(self, acc_id, acc_name):
+        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc chắn muốn xóa tài khoản '{acc_name}' khỏi danh sách?"):
+            self.config["imap_accounts"] = [a for a in self.config.get("imap_accounts", []) if a.get("id") != acc_id]
+            self.save_config()
+            self.render_imap_accounts_list()
+            self.log(f"Đã xóa tài khoản Webmail '{acc_name}'.")
+
+    def test_single_account_card(self, acc, btn_widget):
+        srv = acc.get("server", "").strip()
+        port = acc.get("port", "993")
+        user = acc.get("user", "").strip()
+        pwd = acc.get("password", "").strip()
+        ssl = acc.get("ssl", True)
+
+        btn_widget.configure(text="⏳", state="disabled")
+        self.log(f"Đang kiểm tra tài khoản '{acc.get('name')}' ({srv})...")
 
         def _test():
             try:
-                import imaplib
-                port = int(port_str) if port_str else (993 if use_ssl else 143)
-                if use_ssl:
-                    mail = imaplib.IMAP4_SSL(server, port, timeout=12)
+                ok, msg = test_imap_connection_logic(srv, port, user, pwd, ssl)
+                if ok:
+                    self.after(0, self.log, f"✅ Kết nối thành công tài khoản '{acc.get('name')}' ({srv})!")
+                    self.after(0, lambda: messagebox.showinfo("Kết Quả Webmail", f"✅ Kết nối thành công tới '{acc.get('name')}' ({srv})!\n{msg}"))
                 else:
-                    mail = imaplib.IMAP4(server, port, timeout=12)
-                
-                mail.login(user, password)
-                mail.logout()
-                self.after(0, self.log, f"✅ Kết nối thành công tới Webmail / IMAP ({server})!")
-                self.after(0, lambda: messagebox.showinfo("Kết Quả Webmail", f"✅ Kết nối tới Server Webmail ({server}) thành công!"))
+                    self.after(0, self.log, f"❌ Lỗi kết nối tài khoản '{acc.get('name')}': {msg}")
+                    self.after(0, lambda: messagebox.showerror("Lỗi Kết Nối", f"❌ Kết nối thất bại tới '{acc.get('name')}':\n{msg}"))
             except Exception as e:
-                self.after(0, self.log, f"❌ Lỗi kết nối IMAP tới {server}: {e}")
+                self.after(0, self.log, f"❌ Lỗi kết nối tài khoản '{acc.get('name')}': {e}")
                 self.after(0, lambda: messagebox.showerror("Lỗi Kết Nối", f"❌ Không thể kết nối tới Webmail:\n{e}"))
             finally:
-                self.after(0, lambda: self.btn_test_imap.configure(text="📧 Test kết nối Webmail", state="normal"))
+                self.after(0, lambda: btn_widget.configure(text="🧪 Test", state="normal"))
 
         threading.Thread(target=_test, daemon=True).start()
 
@@ -555,8 +834,8 @@ class EmailReminderApp(ctk.CTk):
 
         def _test_tele():
             try:
-                msg = "🔔 <b>Test thành công!</b> Ứng dụng Email Reminder v1.0 đã kết nối được với Telegram của bạn."
-                msg_plain = "🔔 Test thành công! Ứng dụng Email Reminder v1.0 đã kết nối được với Telegram của bạn."
+                msg = "🔔 <b>Test thành công!</b> Ứng dụng Email Reminder v1.2 đã kết nối được với Telegram của bạn."
+                msg_plain = "🔔 Test thành công! Ứng dụng Email Reminder v1.2 đã kết nối được với Telegram của bạn."
                 ok = send_telegram(token, chat_id, msg, msg_plain, log_callback=lambda m: self.after(0, self.log, m))
                 if ok:
                     self.after(0, self.log, "✅ Gửi tin nhắn thử nghiệm thành công! Hãy kiểm tra điện thoại.")
@@ -588,8 +867,13 @@ class EmailReminderApp(ctk.CTk):
                     res = summarize_offline(sample_body, "Kế hoạch tuần", "Nguyễn Văn A")
                 else:
                     res = summarize_with_ai(ai_engine, api_key, "Kế hoạch tuần", "Nguyễn Văn A", sample_body, log_callback=lambda m: self.after(0, self.log, m))
-                self.after(0, self.log, f" Kết quả test tóm tắt [{ai_engine}]:\n{res}")
-                self.after(0, lambda: messagebox.showinfo(f"Kết Quả Test [{ai_engine}]", f"✅ Kết nối AI thành công!\n\n📄 Nội dung tóm tắt mẫu:\n{res}"))
+                
+                if res and res.startswith("[Lỗi"):
+                    self.after(0, self.log, f"❌ Test AI thất bại: {res}")
+                    self.after(0, lambda: messagebox.showerror(f"Lỗi API [{ai_engine}]", f"❌ Kiểm tra kết nối AI thất bại:\n\n{res}\n\n💡 Gợi ý: Hãy kiểm tra bạn đã chọn đúng hãng AI tương ứng với loại API Key chưa (Ví dụ: key bắt đầu bằng 'gsk_' là của Groq, không phải của Gemini)."))
+                else:
+                    self.after(0, self.log, f" Kết quả test tóm tắt [{ai_engine}]:\n{res}")
+                    self.after(0, lambda: messagebox.showinfo(f"Kết Quả Test [{ai_engine}]", f"✅ Kết nối AI thành công!\n\n📄 Nội dung tóm tắt mẫu:\n{res}"))
             except Exception as e:
                 self.after(0, self.log, f"❌ Lỗi kiểm tra AI: {e}")
                 self.after(0, lambda: messagebox.showerror(f"Lỗi Kết Nối [{ai_engine}]", f"❌ Không thể kết nối hoặc lỗi xử lý:\n{e}"))

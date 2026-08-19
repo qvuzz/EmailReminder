@@ -1,14 +1,17 @@
-# 📬 Email Reminder v1.1 (VNPT AI Assistant)
+# 📬 Email Reminder v1.2 (VNPT AI Assistant)
 
-> **Ứng dụng tự động quét email từ Microsoft Outlook hoặc Máy chủ Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online) và gửi thông báo trực tiếp qua Telegram.**
+> **Ứng dụng tự động quét email từ Microsoft Outlook hoặc Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online) và gửi thông báo trực tiếp qua Telegram.**
 
 ---
 
 ## 🌟 Tính năng nổi bật
 
-- 🌐 **Hỗ trợ đa nguồn Email (Dual Source):**
+- 🌐 **Hỗ trợ đa nguồn Email & Đa tài khoản (Multi-Account & Dual Source):**
   - **Microsoft Outlook (Local):** Đọc trực tiếp từ ứng dụng Outlook trên máy tính thông qua Windows MAPI.
-  - **Webmail / IMAP (Server):** Kết nối trực tiếp máy chủ thư điện tử (VNPT Webmail, Gmail, Zimbra, Yahoo...) qua giao thức IMAP bảo mật (SSL/TLS), không phụ thuộc vào ứng dụng Outlook. Hỗ trợ giải mã tên thư mục tiếng Việt (Modified UTF-7).
+  - **Đa tài khoản Webmail / IMAP (Server):** Cho phép thêm và quét đồng thời không giới hạn các tài khoản thư điện tử (VNPT Webmail, Gmail, Zimbra, Yahoo...) qua giao thức IMAP bảo mật (SSL/TLS).
+  - **Giao diện thẻ & Popup Modal hiện đại:** Quản lý danh sách tài khoản gọn gàng, thêm/sửa/xóa và test kết nối nhanh chóng qua cửa sổ Popup.
+  - **Tối ưu tốc độ quét siêu tốc (Header-First & Cache-First):** Chỉ tải header siêu nhẹ (~1KB) để đối soát, tận dụng Cache bỏ qua việc tải lại thư cũ và chỉ tải nội dung chi tiết đối với email mới.
+  - **Hỗ trợ giải mã thư mục tiếng Việt (Modified UTF-7).**
 - 🎯 **Bộ lọc linh hoạt (Multi-filter):**
   - Lọc theo **Người gửi (Senders)**.
   - Lọc theo **Email CC**.
@@ -16,8 +19,8 @@
   - Lọc theo **Từ khóa tiêu đề / nội dung (Keywords)**.
 - 🤖 **Tóm tắt Email thông minh bằng AI:**
   - **Offline AI (Local):** Chạy trực tiếp trên máy tính bằng `llama-cpp-python` với mô hình *Qwen2.5-3B-Instruct GGUF* — đảm bảo bảo mật dữ liệu 100%, không cần kết nối mạng.
-  - **Online Cloud AI:** Hỗ trợ linh hoạt Google Gemini, OpenAI GPT, Anthropic Claude, DeepSeek...
-- 🔔 **Thông báo tức thì qua Telegram:** Tự động định dạng tin nhắn đẹp mắt, chia nhỏ bản tin thông minh khi có nhiều email.
+  - **Online Cloud AI:** Hỗ trợ linh hoạt Google Gemini, Groq, OpenAI GPT, Anthropic Claude, DeepSeek, Grok...
+- 🔔 **Thông báo tức thì qua Telegram:** Tự động định dạng tin nhắn đẹp mắt, phân biệt rõ tên tài khoản nhận thư, chia nhỏ bản tin thông minh khi có nhiều email.
 - 🖥️ **Giao diện hiện đại (Modern UI):**
   - Xây dựng bằng `CustomTkinter` với tone màu nhận diện thương hiệu VNPT (Xanh - Trắng).
   - Hỗ trợ chạy ngầm dưới **Khay hệ thống (System Tray)**, tự thu nhỏ và nhấp đúp để mở lại.
@@ -29,10 +32,10 @@
 
 ```text
 EmailReminder/
-├── app.py                  # Giao diện chính của ứng dụng (CustomTkinter & System Tray)
+├── app.py                  # Giao diện chính của ứng dụng (CustomTkinter, Popup Modal & System Tray)
 ├── core_logic.py           # Logic quét Outlook qua MAPI, lọc email, gửi Telegram
-├── imap_logic.py           # Logic quét Webmail trực tiếp qua IMAP Server (SSL/TLS)
-├── ai_engines.py           # Kết nối các Cloud AI API (Gemini, OpenAI, Claude, DeepSeek...)
+├── imap_logic.py           # Logic quét đa tài khoản Webmail trực tiếp qua IMAP Server (SSL/TLS)
+├── ai_engines.py           # Kết nối các Cloud AI API (Gemini, Groq, OpenAI, Claude, DeepSeek...)
 ├── offline_ai.py           # Bộ giải mã mô hình AI Offline (llama-cpp-python)
 ├── make_icon.py            # Script tự tạo icon đồ họa cho ứng dụng
 ├── build_exe.bat           # Script đóng gói ứng dụng thành file .exe (CMD)
@@ -87,13 +90,12 @@ python app.py
 
 1. **Tab Cài đặt API & Nguồn Email:**
    - **Nguồn đọc Email:** Chọn `Outlook (Local)` hoặc `Webmail / IMAP (Server)`.
-   - **Cấu hình Webmail / IMAP (nếu chọn IMAP):**
-     - *IMAP Server:* Nhập máy chủ (vd: `mail.vnpt.vn`, `imap.gmail.com`...).
-     - *Port & SSL:* Thường là `993` với `SSL/TLS`.
-     - *Tài khoản & Mật khẩu:* Tên đăng nhập email và mật khẩu (với Gmail cần dùng **Mật khẩu ứng dụng / App Password** 16 ký tự).
-     - Nhấn nút **📧 Test kết nối Webmail** để kiểm tra đăng nhập.
+   - **Quản lý Tài khoản Webmail / IMAP:**
+     - Bấm **➕ Thêm tài khoản** để mở Popup thêm tài khoản mới.
+     - Nhập *Tên gợi nhớ* (vd: `VNPT Công việc`, `Gmail Cá nhân`), *IMAP Server* (vd: `email.vnpt.vn`, `imap.gmail.com`), *Port* (`993`), tích chọn *SSL/TLS*, *Tài khoản* và *Mật khẩu* (với Gmail cần dùng **Mật khẩu ứng dụng / App Password** 16 ký tự).
+     - Nhấn nút **🧪 Test kết nối** ngay trong popup để kiểm tra.
    - **Telegram Bot Token & Chat ID:** Tạo Bot qua `@BotFather` trên Telegram, lấy Chat ID từ `@userinfobot` hoặc group ID, nhập vào và bấm **🔔 Test Telegram** để kiểm tra kết nối.
-   - **AI Engine:** Chọn `Offline (Local llama.cpp)` hoặc các Cloud Engine (`Gemini`, `OpenAI`, `Claude`, `DeepSeek`...) và nhập API Key tương ứng.
+   - **AI Engine:** Chọn `Offline (Local llama.cpp)` hoặc các Cloud Engine (`Gemini`, `Groq`, `OpenAI`, `Claude`, `DeepSeek`...) và nhập API Key tương ứng.
    - **Chu kỳ quét:** Thiết lập khoảng thời gian lặp lại quét email (mặc định 15 phút).
 2. **Tab Bộ lọc (Lists):**
    - Thêm danh sách người gửi, email CC, thư mục cần quét hoặc các từ khóa quan trọng cần cảnh báo.
@@ -123,4 +125,5 @@ Sau khi hoàn tất, file thực thi sẽ nằm tại: **`dist\Email_Reminder.ex
 
 - **Tác giả:** quangvu@vnpt.vn
 - **Bản quyền:** © 2026 VNPT AI Assistant. All rights reserved.
+
 

@@ -155,17 +155,21 @@ def send_telegram_report(token, chat_id, found_emails, log_callback):
         s_time = html.escape(m['time'])
         s_summ = html.escape(m['summary'])
 
+        acc_name = m.get('account_name', '')
+        acc_str_html = f" | 🏢 <i>{html.escape(acc_name)}</i>" if acc_name else ""
+        acc_str_plain = f" | 🏢 {acc_name}" if acc_name else ""
+
         item_html = (
             f"<b>{i+1}. 📌 Tiêu đề:</b> <b>{s_subj}</b>\n"
             f"👤 <b>Người gửi:</b> {s_send}\n"
-            f"⏰ <b>Thời gian:</b> {s_time} | 📁 {s_fold}\n"
+            f"⏰ <b>Thời gian:</b> {s_time} | 📁 {s_fold}{acc_str_html}\n"
             f"💡 <b>Tóm tắt:</b> {s_summ}\n\n"
             f"────────────────────\n\n"
         )
         item_plain = (
             f"{i+1}. 📌 Tiêu đề: {m['subject']}\n"
             f"👤 Người gửi: {m['sender']}\n"
-            f"⏰ Thời gian: {m['time']} | 📁 {m['folder']}\n"
+            f"⏰ Thời gian: {m['time']} | 📁 {m['folder']}{acc_str_plain}\n"
             f"💡 Tóm tắt: {m['summary']}\n\n"
             f"────────────────────\n\n"
         )
@@ -338,7 +342,7 @@ def scan_emails(config, log_callback):
                         body = body_raw
                         
                         # --- CƠ CHẾ SMART CACHE ---
-                        if entry_id in cache and cache[entry_id].get("summary"):
+                        if entry_id in cache and cache[entry_id].get("summary") and not cache[entry_id]["summary"].startswith("[Lỗi"):
                             summary = cache[entry_id]["summary"]
                         else:
                             new_ai_calls += 1
@@ -353,12 +357,13 @@ def scan_emails(config, log_callback):
                                 log_callback(f"⚠️ AI [{ai_engine}] lỗi, dùng tóm tắt cục bộ: {ai_err}")
                                 summary = summarize_offline(body, subject, sender_display)
                             
-                            cache[entry_id] = {
-                                "summary": summary,
-                                "subject": subject,
-                                "sender": sender_display,
-                                "cached_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
+                            if not summary.startswith("[Lỗi"):
+                                cache[entry_id] = {
+                                    "summary": summary,
+                                    "subject": subject,
+                                    "sender": sender_display,
+                                    "cached_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                }
 
                         found_emails.append({
                             "folder": folder.Name,
