@@ -58,9 +58,43 @@ def _call_openai_compatible(url, model, api_key, sys_prompt, prompt):
     data = resp.json()
     return data["choices"][0]["message"]["content"].strip()
 
+def _get_gemini_models(api_key):
+    """Tự động hỏi Google danh sách model mà API Key này được phép dùng"""
+    models = []
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key.strip()}"
+        resp = requests.get(url, timeout=8)
+        if resp.status_code == 200:
+            data = resp.json()
+            for m in data.get("models", []):
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" in methods:
+                    name = m.get("name", "").replace("models/", "")
+                    if name:
+                        models.append(name)
+    except Exception:
+        pass
+
+    if models:
+        # Sắp xếp ưu tiên: flash trước -> pro tiếp theo -> các model khác
+        flash_models = [m for m in models if "flash" in m.lower()]
+        pro_models = [m for m in models if "pro" in m.lower() and "flash" not in m.lower()]
+        other_models = [m for m in models if m not in flash_models and m not in pro_models]
+        return flash_models + pro_models + other_models
+
+    # Fallback danh sách cố định nếu không query được list models
+    return [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-latest",
+        "gemini-pro"
+    ]
+
 def _call_gemini(api_key, sys_prompt, prompt):
-    # Danh sách các model Gemini theo thứ tự ưu tiên
-    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro"]
+    candidate_models = _get_gemini_models(api_key)
     last_err = None
 
     for model_name in candidate_models:
@@ -91,7 +125,7 @@ def _call_gemini(api_key, sys_prompt, prompt):
 
             last_err = f"HTTP {resp.status_code} ({err_detail})"
 
-            # Nếu lỗi sai API Key (400 Invalid key hoặc 403 Forbidden) thì không cần thử model khác
+            # Nếu lỗi sai API Key (400 Invalid key hoặc 403 Forbidden) thì ngắt ngay
             if "API key not valid" in err_detail or "API_KEY_INVALID" in err_detail or resp.status_code == 403:
                 break
 
