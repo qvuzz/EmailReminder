@@ -390,7 +390,7 @@ class EmailReminderApp(ctk.CTk):
 
         self.cb_enable_outlook = ctk.CTkCheckBox(
             source_cb_row,
-            text="📧 Microsoft Outlook (Local)",
+            text="Microsoft Outlook (Local)",
             text_color=COLOR_TEXT_MAIN,
             font=("Segoe UI", 11, "bold"),
             fg_color=COLOR_PRIMARY_BLUE,
@@ -404,7 +404,7 @@ class EmailReminderApp(ctk.CTk):
 
         self.cb_enable_imap = ctk.CTkCheckBox(
             source_cb_row,
-            text="🌐 Webmail / IMAP (Server)",
+            text="Webmail / IMAP (Server)",
             text_color=COLOR_TEXT_MAIN,
             font=("Segoe UI", 11, "bold"),
             fg_color=COLOR_PRIMARY_BLUE,
@@ -785,33 +785,33 @@ class EmailReminderApp(ctk.CTk):
 
             btn_test = ctk.CTkButton(
                 action_row,
-                text="🧪 Test",
-                width=55,
+                text="Test",
+                width=40,
                 fg_color=COLOR_ACCENT_BLUE,
                 hover_color="#0369A1",
-                font=("Segoe UI", 10, "bold")
+                font=("Segoe UI", 12, "bold")
             )
             btn_test.configure(command=lambda a=acc, b=btn_test: self.test_single_account_card(a, b))
             btn_test.pack(side="left", padx=(0, 6))
 
             btn_edit = ctk.CTkButton(
                 action_row,
-                text="✏️ Sửa",
-                width=55,
+                text="Sửa",
+                width=30,
                 fg_color="#0284C7",
                 hover_color="#0369A1",
-                font=("Segoe UI", 10, "bold"),
+                font=("Segoe UI", 12, "bold"),
                 command=lambda aid=acc.get("id"): self.open_edit_imap_account_modal(aid)
             )
             btn_edit.pack(side="left", padx=(0, 6))
 
             btn_del = ctk.CTkButton(
                 action_row,
-                text="🗑️",
-                width=35,
+                text="x",
+                width=25,
                 fg_color=COLOR_RED_BTN,
                 hover_color=COLOR_RED_HOVER,
-                font=("Segoe UI", 10, "bold"),
+                font=("Segoe UI", 15, "bold"),
                 command=lambda aid=acc.get("id"), aname=acc_name: self.delete_imap_account(aid, aname)
             )
             btn_del.pack(side="left")
