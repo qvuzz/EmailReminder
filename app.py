@@ -11,7 +11,9 @@ import pystray
 from pystray import MenuItem as item
 from core_logic import scan_emails, send_telegram
 from imap_logic import scan_emails_imap, test_imap_connection_logic
+from security import encrypt_password, decrypt_password, is_encrypted
 import uuid
+import copy
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -125,7 +127,7 @@ class IMAPAccountModal(ctk.CTkToplevel):
         pwd_row.pack(anchor="w", padx=16, pady=(2, 12))
         self.entry_pwd = ctk.CTkEntry(pwd_row, width=390, show="*", fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
         self.entry_pwd.pack(side="left", padx=(0, 10))
-        self.entry_pwd.insert(0, self.account_data.get("password", ""))
+        self.entry_pwd.insert(0, decrypt_password(self.account_data.get("password", "")))
 
         self.show_pwd = False
         self.btn_toggle_pwd = ctk.CTkButton(pwd_row, text="👁️", width=45, fg_color="#E2E8F0", text_color=COLOR_TEXT_MAIN, hover_color="#CBD5E1", command=self.toggle_password)
@@ -343,9 +345,15 @@ class EmailReminderApp(ctk.CTk):
                 "server": srv,
                 "port": str(default.get("imap_port", "993")),
                 "user": default.get("imap_user", ""),
-                "password": default.get("imap_password", ""),
+                "password": decrypt_password(default.get("imap_password", "")),
                 "ssl": bool(default.get("imap_ssl", True))
             }]
+
+        # Đảm bảo tất cả mật khẩu trong bộ nhớ RAM đều được giải mã để sử dụng
+        for acc in default.get("imap_accounts", []):
+            if "password" in acc and acc["password"]:
+                acc["password"] = decrypt_password(acc["password"])
+
         return default
 
     def save_config(self):
@@ -365,9 +373,17 @@ class EmailReminderApp(ctk.CTk):
         self.config["enable_outlook"] = bool(self.cb_enable_outlook.get())
         self.config["enable_imap"] = bool(self.cb_enable_imap.get())
         
+        # Sao chép và mã hóa toàn bộ mật khẩu trước khi ghi ra đĩa
+        save_payload = copy.deepcopy(self.config)
+        for acc in save_payload.get("imap_accounts", []):
+            if "password" in acc and acc["password"]:
+                acc["password"] = encrypt_password(acc["password"])
+        if "imap_password" in save_payload and save_payload["imap_password"]:
+            save_payload["imap_password"] = encrypt_password(save_payload["imap_password"])
+
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, ensure_ascii=False, indent=4)
-        self.log("Đã lưu cấu hình thành công.")
+            json.dump(save_payload, f, ensure_ascii=False, indent=4)
+        self.log("Đã lưu cấu hình thành công (Mật khẩu được mã hóa an toàn).")
 
     # --- TAB CÀI ĐẶT ---
     def setup_settings_tab(self):

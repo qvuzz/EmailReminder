@@ -16,6 +16,7 @@ from core_logic import (
 )
 from offline_ai import summarize_offline
 from ai_engines import summarize_with_ai
+from security import decrypt_password
 
 def decode_utf7_imap(s):
     """Giải mã Modified UTF-7 (dành cho tên thư mục IMAP tiếng Việt như Hộp thư đến)"""
@@ -183,7 +184,8 @@ def test_imap_connection_logic(server, port_str, user, password, use_ssl):
     else:
         mail = imaplib.IMAP4(server, port, timeout=12)
 
-    mail.login(user, password)
+    plain_pwd = decrypt_password(password)
+    mail.login(user, plain_pwd)
     status, folders = mail.list()
     mail.logout()
     return True, f"Tìm thấy {len(folders)} thư mục." if folders else "Đăng nhập thành công!"
@@ -217,7 +219,8 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
         else:
             mail = imaplib.IMAP4(server, port, timeout=20)
 
-        mail.login(user, password)
+        plain_pwd = decrypt_password(password)
+        mail.login(user, plain_pwd)
 
         # Lấy danh sách thư mục thô và giải mã tiếng Việt
         server_folders = get_imap_folders(mail, log_callback)

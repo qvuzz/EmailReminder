@@ -46,6 +46,8 @@ $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
     --hidden-import email `
     --hidden-import email.header `
     --hidden-import email.utils `
+    --hidden-import security `
+    --hidden-import ctypes `
     --add-data "app_icon.ico;." `
     --add-data "app_icon.png;." `
     app.py
@@ -55,7 +57,12 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "[4/4] Dong bo thu muc models va data sang dist\..." -ForegroundColor Gray
     if (Test-Path "models") {
         if (-not (Test-Path "dist\models")) { New-Item -ItemType Directory -Path "dist\models" | Out-Null }
-        Copy-Item -Path "models\*" -Destination "dist\models" -Recurse -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path "models" | ForEach-Object {
+            $dest = Join-Path "dist\models" $_.Name
+            if (-not (Test-Path $dest)) {
+                Copy-Item -Path $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
     if (Test-Path "data\config.json") {
         if (-not (Test-Path "dist\data")) { New-Item -ItemType Directory -Path "dist\data" | Out-Null }
