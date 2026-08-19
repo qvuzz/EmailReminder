@@ -25,7 +25,7 @@ Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
 
 # 3. Chạy PyInstaller
 Write-Host "[3/4] Dang bien dich PyInstaller..." -ForegroundColor Cyan
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { (Get-Location).Path }
 $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
 
 & $pyinstaller --noconsole --onefile --clean `
@@ -37,9 +37,15 @@ $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
     --collect-all pystray `
     --hidden-import win32timezone `
     --hidden-import win32com `
+    --hidden-import win32com.client `
+    --hidden-import pythoncom `
     --hidden-import pywintypes `
     --hidden-import PIL `
     --hidden-import PIL.Image `
+    --hidden-import imaplib `
+    --hidden-import email `
+    --hidden-import email.header `
+    --hidden-import email.utils `
     --add-data "app_icon.ico;." `
     --add-data "app_icon.png;." `
     app.py

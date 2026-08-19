@@ -59,24 +59,43 @@ def _call_openai_compatible(url, model, api_key, sys_prompt, prompt):
     return data["choices"][0]["message"]["content"].strip()
 
 def _call_gemini(api_key, sys_prompt, prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key.strip()}"
-    payload = {
-        "system_instruction": {"parts": [{"text": sys_prompt}]},
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 1000,
-            "thinkingConfig": {"thinkingBudget": 0}
-        }
-    }
-    resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=20)
-    if resp.status_code != 200:
-        try:
-            err_data = resp.json()
-            err_detail = err_data.get("error", {}).get("message") or resp.text
-        except Exception:
-            err_detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code} ({err_detail})")
+    # Danh sách các model Gemini theo thứ tự ưu tiên
+    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-pro"]
+    last_err = None
 
-    data = resp.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    for model_name in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key.strip()}"
+        payload = {
+            "system_instruction": {"parts": [{"text": sys_prompt}]},
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 1000
+            }
+        }
+        try:
+            resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=20)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "candidates" in data and data["candidates"] and "content" in data["candidates"][0]:
+                    parts = data["candidates"][0]["content"].get("parts", [])
+                    if parts and "text" in parts[0]:
+                        return parts[0]["text"].strip()
+                raise ValueError("Gemini trả về cấu trúc rỗng.")
+
+            try:
+                err_data = resp.json()
+                err_detail = err_data.get("error", {}).get("message") or resp.text
+            except Exception:
+                err_detail = resp.text
+
+            last_err = f"HTTP {resp.status_code} ({err_detail})"
+
+            # Nếu lỗi sai API Key (400 Invalid key hoặc 403 Forbidden) thì không cần thử model khác
+            if "API key not valid" in err_detail or "API_KEY_INVALID" in err_detail or resp.status_code == 403:
+                break
+
+        except Exception as e:
+            last_err = str(e)
+
+    raise RuntimeError(last_err or "Không thể kết nối tới Google Gemini API.")
