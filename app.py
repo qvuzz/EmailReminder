@@ -290,7 +290,7 @@ class EmailReminderApp(ctk.CTk):
         
         self.tab_dashboard = self.tabview.add("Bảng điều khiển")
         self.tab_filters = self.tabview.add("Bộ lọc (Lists)")
-        self.tab_settings = self.tabview.add("Cài đặt API")
+        self.tab_settings = self.tabview.add("Cài đặt")
 
         self.update_tab_colors()
         self.setup_settings_tab()
@@ -314,13 +314,25 @@ class EmailReminderApp(ctk.CTk):
             "ai_engine": "Offline", "interval_mins": "15",
             "senders": [], "folders": ["Inbox"], "cc_emails": [],
             "keywords": [],
-            "email_source": "Outlook (Local)",
+            "enable_outlook": True,
+            "enable_imap": False,
             "imap_accounts": []
         }
+        loaded = {}
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
                 default.update(loaded)
+
+        # Chuyển đổi dữ liệu cũ nếu trước đó chỉ có email_source dạng đơn lẻ
+        if "enable_outlook" not in loaded and "enable_imap" not in loaded:
+            old_source = loaded.get("email_source", "Outlook (Local)")
+            if old_source == "Webmail / IMAP (Server)":
+                default["enable_outlook"] = False
+                default["enable_imap"] = True
+            else:
+                default["enable_outlook"] = True
+                default["enable_imap"] = False
 
         # Tự động di chuyển cấu hình tài khoản đơn lẻ cũ sang mảng imap_accounts
         if not default.get("imap_accounts") and default.get("imap_server"):
@@ -350,7 +362,8 @@ class EmailReminderApp(ctk.CTk):
         self.config["api_key"] = raw_key
         self.config["ai_engine"] = self.combo_ai.get()
         self.config["interval_mins"] = self.entry_interval.get().strip()
-        self.config["email_source"] = self.combo_source.get()
+        self.config["enable_outlook"] = bool(self.cb_enable_outlook.get())
+        self.config["enable_imap"] = bool(self.cb_enable_imap.get())
         
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(self.config, f, ensure_ascii=False, indent=4)
@@ -361,24 +374,48 @@ class EmailReminderApp(ctk.CTk):
         frame = ctk.CTkScrollableFrame(self.tab_settings, fg_color="transparent")
         frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # --- LỰA CHỌN NGUỒN QUÉT MAIL ---
+        # --- LỰA CHỌN NGUỒN QUÉT MAIL (HỖ TRỢ TICK ĐỒNG THỜI CẢ 2) ---
         self.source_container = ctk.CTkFrame(frame, fg_color="transparent")
         self.source_container.pack(anchor="w", fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(self.source_container, text="Nguồn quét Email:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(anchor="w")
-        self.combo_source = ctk.CTkOptionMenu(
-            self.source_container,
-            values=["Outlook (Local)", "Webmail / IMAP (Server)"],
-            command=self.on_source_changed,
+        ctk.CTkLabel(
+            self.source_container, 
+            text="Nguồn quét Email (Có thể tick chọn đồng thời cả 2):", 
+            font=("Segoe UI", 12, "bold"), 
+            text_color=COLOR_TEXT_MAIN
+        ).pack(anchor="w")
+
+        source_cb_row = ctk.CTkFrame(self.source_container, fg_color="transparent")
+        source_cb_row.pack(anchor="w", pady=(4, 8))
+
+        self.cb_enable_outlook = ctk.CTkCheckBox(
+            source_cb_row,
+            text="📧 Microsoft Outlook (Local)",
+            text_color=COLOR_TEXT_MAIN,
+            font=("Segoe UI", 11, "bold"),
             fg_color=COLOR_PRIMARY_BLUE,
-            button_color=COLOR_HOVER_BLUE,
-            button_hover_color=COLOR_PRIMARY_BLUE,
-            dropdown_fg_color="#FFFFFF",
-            dropdown_text_color=COLOR_TEXT_MAIN,
-            dropdown_hover_color="#E2E8F0"
+            hover_color=COLOR_HOVER_BLUE
         )
-        self.combo_source.pack(anchor="w", pady=(2, 10))
-        self.combo_source.set(self.config.get("email_source", "Outlook (Local)"))
+        self.cb_enable_outlook.pack(side="left", padx=(0, 20))
+        if self.config.get("enable_outlook", True):
+            self.cb_enable_outlook.select()
+        else:
+            self.cb_enable_outlook.deselect()
+
+        self.cb_enable_imap = ctk.CTkCheckBox(
+            source_cb_row,
+            text="🌐 Webmail / IMAP (Server)",
+            text_color=COLOR_TEXT_MAIN,
+            font=("Segoe UI", 11, "bold"),
+            fg_color=COLOR_PRIMARY_BLUE,
+            hover_color=COLOR_HOVER_BLUE,
+            command=self.on_imap_checkbox_toggled
+        )
+        self.cb_enable_imap.pack(side="left")
+        if self.config.get("enable_imap", False):
+            self.cb_enable_imap.select()
+        else:
+            self.cb_enable_imap.deselect()
 
         # --- KHUNG QUẢN LÝ TÀI KHOẢN IMAP (Giao diện thẻ gọn gàng) ---
         self.imap_config_frame = ctk.CTkFrame(self.source_container, fg_color="#F1F5F9", border_width=1, border_color=COLOR_BORDER, corner_radius=8)
@@ -410,7 +447,7 @@ class EmailReminderApp(ctk.CTk):
 
         self.render_imap_accounts_list()
 
-        if self.config.get("email_source", "Outlook (Local)") == "Webmail / IMAP (Server)":
+        if self.config.get("enable_imap", False):
             self.imap_config_frame.pack(anchor="w", fill="x", pady=(5, 10))
 
         ctk.CTkFrame(frame, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=(5, 15))
@@ -637,6 +674,10 @@ class EmailReminderApp(ctk.CTk):
     def toggle_running(self):
         if not self.is_running:
             self.save_config()
+            if not self.config.get("enable_outlook", True) and not self.config.get("enable_imap", False):
+                messagebox.showwarning("Chưa chọn nguồn quét", "⚠️ Vui lòng tick chọn ít nhất một nguồn quét email (Outlook hoặc Webmail / IMAP) trong tab Cài Đặt!")
+                return
+
             self.is_running = True
             self.stop_event.clear()
             # Nút Dừng: Màu Đỏ
@@ -657,20 +698,35 @@ class EmailReminderApp(ctk.CTk):
             interval_sec = 900
 
         while not self.stop_event.is_set():
-            source = self.config.get("email_source", "Outlook (Local)")
-            self.after(0, self.log, f"Đang quét hòm thư... ({source} | AI: {self.config.get('ai_engine')})")
-            
-            if source == "Webmail / IMAP (Server)":
-                scan_emails_imap(self.config, lambda msg: self.after(0, self.log, msg))
-            else:
-                scan_emails(self.config, lambda msg: self.after(0, self.log, msg))
-            
+            active_srcs = []
+            if self.config.get("enable_outlook", True):
+                active_srcs.append("Outlook")
+            if self.config.get("enable_imap", False):
+                active_srcs.append("Webmail/IMAP")
+
+            src_str = " + ".join(active_srcs) if active_srcs else "Chưa chọn nguồn"
+            self.after(0, self.log, f"Đang quét hòm thư... ({src_str} | AI: {self.config.get('ai_engine')})")
+
+            # 1. Quét Microsoft Outlook (Local) nếu được tick chọn
+            if self.config.get("enable_outlook", True) and not self.stop_event.is_set():
+                try:
+                    scan_emails(self.config, lambda msg: self.after(0, self.log, msg))
+                except Exception as out_err:
+                    self.after(0, self.log, f"❌ Lỗi quét Outlook: {out_err}")
+
+            # 2. Quét Webmail / IMAP (Server) nếu được tick chọn
+            if self.config.get("enable_imap", False) and not self.stop_event.is_set():
+                try:
+                    scan_emails_imap(self.config, lambda msg: self.after(0, self.log, msg))
+                except Exception as imap_err:
+                    self.after(0, self.log, f"❌ Lỗi quét Webmail/IMAP: {imap_err}")
+
             for _ in range(interval_sec):
                 if self.stop_event.is_set(): break
                 time.sleep(1)
 
-    def on_source_changed(self, value):
-        if value == "Webmail / IMAP (Server)":
+    def on_imap_checkbox_toggled(self):
+        if self.cb_enable_imap.get():
             self.imap_config_frame.pack(anchor="w", fill="x", pady=(5, 10))
         else:
             self.imap_config_frame.pack_forget()

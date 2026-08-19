@@ -366,6 +366,7 @@ def scan_emails(config, log_callback):
                                 }
 
                         found_emails.append({
+                            "account_name": "Outlook",
                             "folder": folder.Name,
                             "subject": subject,
                             "sender": sender_display,
