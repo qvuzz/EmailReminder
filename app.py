@@ -1099,6 +1099,8 @@ class EmailReminderApp(ctk.CTk):
             )
             badge.pack(side="left", padx=(0, 6), pady=2)
 
+        self.bind_smooth_scroll(self.dash_rules_overview_frame, speed=3)
+
     def _render_rule_stat_box(self, parent, icon, title, items, empty_msg):
         """Vẽ khối tóm tắt 1 nhóm rules"""
         box = ctk.CTkFrame(parent, fg_color="#F8FAFC", corner_radius=8, border_width=1, border_color=COLOR_BORDER)
@@ -1277,6 +1279,41 @@ class EmailReminderApp(ctk.CTk):
             self.log_box.delete("1.0", "end")
             self.log_box.configure(state="disabled")
 
+    def bind_smooth_scroll(self, scrollable_frame, speed=3):
+        """Kích hoạt cuộn chuột mượt mà và tốc độ cao cho CTkScrollableFrame và toàn bộ widget con"""
+        if not hasattr(scrollable_frame, "_parent_canvas"):
+            return
+
+        canvas = scrollable_frame._parent_canvas
+
+        def _on_mousewheel(event):
+            try:
+                # Windows event.delta is typically 120 (up) or -120 (down)
+                steps = int(-1 * (event.delta / 120) * speed)
+                canvas.yview_scroll(steps, "units")
+            except Exception:
+                pass
+            return "break"
+
+        def _bind_recursive(widget):
+            try:
+                widget.bind("<MouseWheel>", _on_mousewheel, add="+")
+            except Exception:
+                pass
+            if hasattr(widget, "_canvas") and widget._canvas:
+                try: widget._canvas.bind("<MouseWheel>", _on_mousewheel, add="+")
+                except Exception: pass
+            if hasattr(widget, "_textbox") and widget._textbox:
+                try: widget._textbox.bind("<MouseWheel>", _on_mousewheel, add="+")
+                except Exception: pass
+            for child in widget.winfo_children():
+                _bind_recursive(child)
+
+        canvas.bind("<MouseWheel>", _on_mousewheel, add="+")
+        if hasattr(scrollable_frame, "_parent_frame") and scrollable_frame._parent_frame:
+            scrollable_frame._parent_frame.bind("<MouseWheel>", _on_mousewheel, add="+")
+        _bind_recursive(scrollable_frame)
+
     # =========================================================================
     # TRANG 2: ✉️ EMAILS (LỊCH SỬ CHI TIẾT)
     # =========================================================================
@@ -1340,6 +1377,8 @@ class EmailReminderApp(ctk.CTk):
 
         for email in emails:
             self._render_single_email_card(self.emails_full_scroll, email)
+
+        self.bind_smooth_scroll(self.emails_full_scroll, speed=3)
 
     def clear_emails_history(self):
         self.latest_notifications = []
@@ -1591,6 +1630,8 @@ class EmailReminderApp(ctk.CTk):
                 "expanded": True
             }
 
+        self.bind_smooth_scroll(scroll_frame, speed=3)
+
     def toggle_inline_folder_group(self, grp_title):
         data = self.inline_folder_groups.get(grp_title)
         if not data:
@@ -1741,6 +1782,8 @@ class EmailReminderApp(ctk.CTk):
                 command=lambda v=item_val: self.remove_filter_item(key, v)
             )
             btn_del.pack(side="right", padx=6, pady=4)
+
+        self.bind_smooth_scroll(scroll_frame, speed=3)
 
     # =========================================================================
     # TRANG 4: ⚙️ SETTINGS (CÀI ĐẶT HỆ THỐNG)
@@ -1967,6 +2010,8 @@ class EmailReminderApp(ctk.CTk):
             command=self.save_config
         )
         btn_save.pack(anchor="w", padx=16, pady=(0, 16))
+
+        self.bind_smooth_scroll(scroll, speed=3)
 
     def _create_settings_section(self, parent, title):
         card = ctk.CTkFrame(parent, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
@@ -2297,6 +2342,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
 - Nút Mở Mail (✉️): Mở trực tiếp email gốc trong Microsoft Outlook hoặc Webmail.
 - Chuột phải icon khay hệ thống: Chọn '📬 Xem thông báo email mới' để mở lại bất cứ lúc nào."""
         self._create_help_textbox(c4, txt4)
+        self.bind_smooth_scroll(scroll, speed=3)
 
     def _create_help_textbox(self, parent, content):
         tb = ctk.CTkTextbox(parent, height=135, font=("Segoe UI", 11), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=8)
