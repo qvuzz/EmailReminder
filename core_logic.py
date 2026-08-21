@@ -461,32 +461,38 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
             if new_ai_calls > 0:
                 save_cache(cache)
 
+            # Phân loại Thread & Standalone
+            from thread_logic import process_scanned_emails_for_threads
+            standalone_emails, thread_notifications = process_scanned_emails_for_threads(
+                found_emails, config, log_callback=log_callback
+            )
+            notify_items = standalone_emails + thread_notifications
+
             # 1. Gửi Telegram nếu được bật
             if config.get("enable_telegram", True):
                 tele_token = config.get("tele_token")
                 tele_chat_id = config.get("tele_chat_id")
-                if tele_token and tele_chat_id:
+                if tele_token and tele_chat_id and notify_items:
                     success = send_telegram_report(
                         tele_token, 
                         tele_chat_id, 
-                        found_emails, 
+                        notify_items, 
                         log_callback
                     )
-                    cached_count = len(found_emails) - new_ai_calls
                     if success:
-                        if new_ai_calls > 0:
-                            log_callback(f"✅ Đã gửi Telegram {len(found_emails)} email ({new_ai_calls} tóm tắt mới qua AI, {cached_count} từ Cache).")
-                        else:
-                            log_callback(f"✅ Đã gửi Telegram {len(found_emails)} email (100% từ Cache, không tốn API).")
-                else:
+                        log_callback(f"✅ Đã gửi Telegram {len(notify_items)} thông báo ({len(standalone_emails)} email đơn lẻ, {len(thread_notifications)} chuỗi hội thoại).")
+                elif not tele_token or not tele_chat_id:
                     log_callback("⚠️ Kênh Telegram đang bật nhưng chưa cấu hình Token / Chat ID.")
             
             # 2. Callback thông báo giao diện / Desktop System Tray
             if on_emails_found_callback:
                 try:
-                    on_emails_found_callback(found_emails)
-                except Exception as cb_err:
-                    log_callback(f"⚠️ Lỗi hiển thị thông báo Desktop: {cb_err}")
+                    on_emails_found_callback(standalone_emails, thread_notifications)
+                except Exception:
+                    try:
+                        on_emails_found_callback(found_emails)
+                    except Exception as cb_err:
+                        log_callback(f"⚠️ Lỗi hiển thị thông báo Desktop: {cb_err}")
 
             return found_emails
         else:

@@ -700,7 +700,7 @@ class EmailReminderApp(ctk.CTk):
     """Giao diện chính eMail Assistant phong cách Modern SaaS Dashboard với Menu dọc"""
     def __init__(self):
         super().__init__()
-        self.title("eMail Assistant v1.3 - VNPT AI")
+        self.title("eMail Assistant v1.4 - VNPT AI")
         self.geometry("1120x740")
         self.minsize(980, 640)
         self.configure(fg_color=COLOR_BG_LIGHT)
@@ -792,6 +792,7 @@ class EmailReminderApp(ctk.CTk):
         nav_items = [
             ("dashboard", "📊  Dashboard"),
             ("emails",    "✉️  Emails"),
+            ("threads",   "🧵  Threads"),
             ("rules",     "⚡  Rules"),
             ("settings",  "⚙️  Settings"),
             ("help",      "📖  Help")
@@ -830,7 +831,7 @@ class EmailReminderApp(ctk.CTk):
 
         lbl_sidebar_ver = ctk.CTkLabel(
             sidebar_footer,
-            text="Phiên bản v1.3\n © quangvu@vnpt - 2026",
+            text="Phiên bản v1.4\n © quangvu@vnpt - 2026",
             font=("Segoe UI", 9),
             text_color="#64748B"
         )
@@ -906,6 +907,7 @@ class EmailReminderApp(ctk.CTk):
         # Khởi tạo các trang
         self.setup_dashboard_page()
         self.setup_emails_page()
+        self.setup_threads_page()
         self.setup_rules_page()
         self.setup_settings_page()
         self.setup_help_page()
@@ -930,11 +932,14 @@ class EmailReminderApp(ctk.CTk):
         title_map = {
             "dashboard": "Dashboard",
             "emails":    "Emails (Lịch sử quét & Tóm tắt)",
+            "threads":   "Threads (Quản lý chuỗi hội thoại email)",
             "rules":     "Rules (Bộ lọc Email)",
             "settings":  "Settings (Cài đặt hệ thống)",
             "help":      "Help & Documentation (Trợ giúp)"
         }
         self.lbl_topbar_title.configure(text=title_map.get(page_id, "Dashboard"))
+        if page_id == "threads" and hasattr(self, "refresh_threads_list"):
+            self.refresh_threads_list()
 
     # =========================================================================
     # TRANG 1: 📊 DASHBOARD (TỔNG QUAN BỘ LỌC & TRẠNG THÁI HỆ THỐNG)
@@ -1449,7 +1454,207 @@ class EmailReminderApp(ctk.CTk):
         self.log("Đã xóa sạch lịch sử email đã quét.")
 
     # =========================================================================
-    # TRANG 3: ⚡ RULES (BỘ LỌC)
+    # TRANG 3: 🧵 THREADS (QUẢN LÝ CHUỖI HỘI THOẠI EMAIL)
+    # =========================================================================
+    def setup_threads_page(self):
+        page = ctk.CTkFrame(self.page_container, fg_color="transparent")
+        self.pages["threads"] = page
+
+        top_ctrl = ctk.CTkFrame(page, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        top_ctrl.pack(fill="x", pady=(0, 12))
+
+        inner = ctk.CTkFrame(top_ctrl, fg_color="transparent")
+        inner.pack(fill="x", padx=16, pady=12)
+
+        ctk.CTkLabel(inner, text="🔍 Tìm kiếm chuỗi:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left", padx=(0, 8))
+        self.entry_thread_search = ctk.CTkEntry(inner, placeholder_text="Nhập từ khóa tiêu đề, người gửi hoặc nội dung tóm tắt chuỗi...", width=320, fg_color="#FFFFFF", border_color=COLOR_BORDER)
+        self.entry_thread_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.entry_thread_search.bind("<KeyRelease>", lambda e: self.refresh_threads_list())
+
+        self.btn_thread_sort = ctk.CTkButton(
+            inner,
+            text="⇅ Mới nhất",
+            width=105,
+            height=32,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color=COLOR_PRIMARY_BLUE,
+            text_color=COLOR_PRIMARY_BLUE,
+            hover_color="#F0F7FF",
+            font=("Segoe UI", 11, "bold"),
+            command=self.toggle_thread_sort_order
+        )
+        self.btn_thread_sort.pack(side="right", padx=(0, 8))
+
+        btn_refresh = ctk.CTkButton(
+            inner,
+            text="🔄 Làm mới",
+            width=95,
+            height=32,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color="#475569",
+            hover_color="#F1F5F9",
+            font=("Segoe UI", 11),
+            command=self.refresh_threads_list
+        )
+        btn_refresh.pack(side="right", padx=(0, 8))
+
+        btn_clear_threads = ctk.CTkButton(
+            inner,
+            text="🗑️ Xóa tất cả",
+            width=105,
+            height=32,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color="#475569",
+            hover_color="#F1F5F9",
+            font=("Segoe UI", 11),
+            command=self.clear_all_threads_ui
+        )
+        btn_clear_threads.pack(side="right")
+
+        list_container = ctk.CTkFrame(page, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        list_container.pack(fill="both", expand=True)
+
+        self.threads_scroll_frame = ctk.CTkScrollableFrame(list_container, fg_color="transparent")
+        self.threads_scroll_frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self.thread_sort_order = "newest"
+        self.refresh_threads_list()
+
+    def toggle_thread_sort_order(self):
+        if getattr(self, "thread_sort_order", "newest") == "newest":
+            self.thread_sort_order = "oldest"
+            if hasattr(self, "btn_thread_sort"):
+                self.btn_thread_sort.configure(text="⇅ Cũ nhất")
+        else:
+            self.thread_sort_order = "newest"
+            if hasattr(self, "btn_thread_sort"):
+                self.btn_thread_sort.configure(text="⇅ Mới nhất")
+        self.refresh_threads_list()
+
+    def refresh_threads_list(self):
+        if not hasattr(self, 'threads_scroll_frame'):
+            return
+        from thread_logic import get_all_threads
+        for child in self.threads_scroll_frame.winfo_children():
+            child.destroy()
+
+        kw = self.entry_thread_search.get().strip() if hasattr(self, 'entry_thread_search') else ""
+        threads = get_all_threads(limit=200, search_kw=kw)
+
+        if getattr(self, "thread_sort_order", "newest") == "oldest":
+            threads = sorted(threads, key=lambda t: parse_email_time_helper({"time": t.get("last_updated", "")}))
+        else:
+            threads = sorted(threads, key=lambda t: parse_email_time_helper({"time": t.get("last_updated", "")}), reverse=True)
+
+        if not threads:
+            empty = ctk.CTkFrame(self.threads_scroll_frame, fg_color="#F8FAFC", corner_radius=8)
+            empty.pack(fill="x", pady=30, padx=10)
+            ctk.CTkLabel(
+                empty,
+                text="ℹ️ Chưa có chuỗi hội thoại nào trong cơ sở dữ liệu." if not kw else "ℹ️ Không tìm thấy chuỗi email nào khớp từ khóa.",
+                font=("Segoe UI", 12, "italic"),
+                text_color=COLOR_TEXT_MUTED
+            ).pack(pady=20)
+            return
+
+        for t in threads:
+            self._render_thread_card(self.threads_scroll_frame, t)
+
+        self.bind_smooth_scroll(self.threads_scroll_frame)
+
+    def _render_thread_card(self, parent, thread_item):
+        card = ctk.CTkFrame(parent, fg_color="#FFFFFF", corner_radius=8, border_width=1, border_color=COLOR_BORDER)
+        card.pack(fill="x", pady=4, padx=2)
+
+        top_row = ctk.CTkFrame(card, fg_color="transparent")
+        top_row.pack(fill="x", padx=10, pady=(8, 2))
+
+        acc = thread_item.get("account_name") or "Email"
+        folder = thread_item.get("folder") or "Inbox"
+        badge_src = ctk.CTkLabel(top_row, text=f"📁 {acc} • {folder}", font=("Segoe UI", 9, "bold"), text_color=COLOR_PRIMARY_BLUE, fg_color="#E0F2FE", corner_radius=4, padx=6, pady=1)
+        badge_src.pack(side="left", padx=(0, 6))
+
+        count = thread_item.get("email_count", 1)
+        badge_count = ctk.CTkLabel(top_row, text=f"💬 {count} thư trong chuỗi", font=("Segoe UI", 9, "bold"), text_color="#15803D", fg_color="#DCFCE7", corner_radius=4, padx=6, pady=1)
+        badge_count.pack(side="left")
+
+        time_str = thread_item.get("last_updated", "")
+        ctk.CTkLabel(top_row, text=f"🕒 Cập nhật: {time_str}", font=("Segoe UI", 9), text_color=COLOR_TEXT_MUTED).pack(side="right")
+
+        last_sender = thread_item.get("last_sender", "Người gửi ẩn")
+        ctk.CTkLabel(card, text=f"👤 Phản hồi gần nhất: {last_sender}", font=("Segoe UI", 10, "bold"), text_color=COLOR_TEXT_MAIN, anchor="w").pack(fill="x", padx=10, pady=(2, 0))
+
+        subj = thread_item.get("subject", "(Không tiêu đề)")
+        ctk.CTkLabel(card, text=f"🧵 {subj}", font=("Segoe UI", 11, "bold"), text_color=COLOR_PRIMARY_BLUE, anchor="w").pack(fill="x", padx=10, pady=(2, 4))
+
+        summary = thread_item.get("current_summary", "")
+        if summary:
+            txt = ctk.CTkTextbox(card, height=75, font=("Segoe UI", 10), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            txt.pack(fill="x", padx=10, pady=(0, 6))
+            txt.insert("1.0", summary)
+            txt.configure(state="disabled")
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        btn_copy = ctk.CTkButton(
+            btn_row,
+            text="📋 Copy tóm tắt",
+            width=100,
+            height=26,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color="#475569",
+            hover_color="#F1F5F9",
+            font=("Segoe UI", 10, "bold"),
+            command=lambda t=thread_item: self.copy_thread_summary_ui(t)
+        )
+        btn_copy.pack(side="left", padx=(0, 6))
+
+        btn_del = ctk.CTkButton(
+            btn_row,
+            text="🗑️ Xóa chuỗi",
+            width=80,
+            height=26,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color=COLOR_RED_BTN,
+            hover_color="#FEF2F2",
+            font=("Segoe UI", 10),
+            command=lambda tid=thread_item.get("id"): self.delete_single_thread_ui(tid)
+        )
+        btn_del.pack(side="right")
+
+    def copy_thread_summary_ui(self, thread_item):
+        text = f"Chuỗi email: {thread_item.get('subject')}\nSố lượng thư: {thread_item.get('email_count')}\nCập nhật gần nhất: {thread_item.get('last_updated')}\nPhản hồi gần nhất: {thread_item.get('last_sender')}\n\nTóm tắt sự việc:\n{thread_item.get('current_summary')}"
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.log(f"📋 Đã copy tóm tắt chuỗi: '{thread_item.get('subject')}'")
+        except Exception:
+            pass
+
+    def delete_single_thread_ui(self, thread_id):
+        from thread_logic import delete_thread
+        delete_thread(thread_id)
+        self.refresh_threads_list()
+        self.log(f"Đã xóa chuỗi hội thoại ID {thread_id} khỏi database.")
+
+    def clear_all_threads_ui(self):
+        if messagebox.askyesno("Xác nhận", "Bạn có chắc chắn muốn xóa toàn bộ lịch sử các chuỗi hội thoại email?", parent=self):
+            from thread_logic import clear_all_threads
+            clear_all_threads()
+            self.refresh_threads_list()
+            self.log("Đã xóa sạch toàn bộ chuỗi hội thoại trong threads.db.")
+
+    # =========================================================================
+    # TRANG 4: ⚡ RULES (BỘ LỌC)
     # =========================================================================
     def setup_rules_page(self):
         page = ctk.CTkFrame(self.page_container, fg_color="transparent")
@@ -2570,22 +2775,41 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
                 if self.stop_event.is_set(): break
                 time.sleep(1)
 
-    def on_new_emails_found(self, emails):
-        if not emails:
+    def on_new_emails_found(self, standalone_emails, thread_notifications=None):
+        if not standalone_emails and not thread_notifications:
             return
-        self.latest_notifications = list(emails)
-        self.stat_unread_count = len(emails)
-        self.stat_ai_processed += len(emails)
         
-        if hasattr(self, 'lbl_stat_unread'):
-            self.after(0, lambda: self.lbl_stat_unread.configure(text=str(self.stat_unread_count)))
-        if hasattr(self, 'lbl_stat_ai'):
-            self.after(0, lambda: self.lbl_stat_ai.configure(text=str(self.stat_ai_processed)))
+        # Hỗ trợ cả tương thích ngược (1 tham số list) và 2 tham số (standalone + threads)
+        if thread_notifications is None and isinstance(standalone_emails, list):
+            emails = list(standalone_emails)
+            thread_notifs = []
+        else:
+            emails = list(standalone_emails) if standalone_emails else []
+            thread_notifs = list(thread_notifications) if thread_notifications else []
 
-        self.after(0, self.filter_emails_history)
+        if emails:
+            self.latest_notifications = emails
+            self.stat_unread_count = len(emails)
+            self.stat_ai_processed += len(emails)
+            
+            if hasattr(self, 'lbl_stat_unread'):
+                self.after(0, lambda: self.lbl_stat_unread.configure(text=str(self.stat_unread_count)))
+            if hasattr(self, 'lbl_stat_ai'):
+                self.after(0, lambda: self.lbl_stat_ai.configure(text=str(self.stat_ai_processed)))
 
-        if self.config.get("enable_tray_notify", True):
-            self.after(0, lambda: self.show_desktop_notification(emails))
+            self.after(0, self.filter_emails_history)
+
+        # Tự động cập nhật trang Threads khi có diễn biến chuỗi mới
+        if thread_notifs:
+            self.stat_ai_processed += len(thread_notifs)
+            if hasattr(self, 'lbl_stat_ai'):
+                self.after(0, lambda: self.lbl_stat_ai.configure(text=str(self.stat_ai_processed)))
+        self.after(0, lambda: self.refresh_threads_list() if hasattr(self, 'refresh_threads_list') else None)
+
+        # Danh sách popup Desktop: Email đơn lẻ + Bản tóm tắt cuốn chiếu duy nhất của Thread
+        all_notify_items = list(emails) + list(thread_notifs)
+        if self.config.get("enable_tray_notify", True) and all_notify_items:
+            self.after(0, lambda: self.show_desktop_notification(all_notify_items))
 
     def show_desktop_notification(self, emails):
         try:
@@ -2650,7 +2874,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
                 pystray.Menu.SEPARATOR,
                 item("❌ Thoát ứng dụng", self.quit_app)
             )
-            self.tray_icon = pystray.Icon("eMailSmartAssistant", image, "eMail Smart Assistant v1.3", menu)
+            self.tray_icon = pystray.Icon("eMailAssistant", image, "eMail Assistant v1.4", menu)
             self.tray_icon.run_detached()
         except Exception as e:
             print(f"Lỗi khởi tạo Tray Icon: {e}")
@@ -2660,7 +2884,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             self.withdraw()
             if self.tray_icon:
                 try:
-                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "eMail Smart Assistant v1.3")
+                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "eMail Assistant v1.4")
                 except Exception:
                     pass
 

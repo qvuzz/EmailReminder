@@ -43,6 +43,8 @@ $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
     --hidden-import email.utils `
     --hidden-import security `
     --hidden-import ctypes `
+    --hidden-import thread_logic `
+    --hidden-import sqlite3 `
     --add-data "app_icon.ico;." `
     --add-data "app_icon.png;." `
     app.py
