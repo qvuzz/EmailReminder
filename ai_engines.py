@@ -42,17 +42,21 @@ def summarize_with_ai(ai_type, api_key, subject, sender, body, log_callback=None
 def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary, new_emails, log_callback=None):
     """
     Tóm tắt cuốn chiếu chuỗi hội thoại email (Email Thread Rolling Summarization).
-    Kết hợp [Bản tóm tắt cũ] + [Các email mới phát sinh] để cập nhật tổng quan, diễn biến và action items.
+    Kết hợp [Bản tóm tắt cũ] + [Các email mới phát sinh] để cập nhật tổng quan, diễn biến chi tiết và action items.
     """
     if not new_emails:
         return current_summary or "Chưa có nội dung tóm tắt."
 
     sys_prompt = (
-        "Bạn là trợ lý AI chuyên tổng hợp và cập nhật chuỗi hội thoại email công việc (Email Thread).\n"
-        "Nhiệm vụ: Hãy phân tích [BẢN TÓM TẮT TRƯỚC ĐÓ] và [CÁC EMAIL PHÁT SINH] để đưa ra MỘT bản tóm tắt cuốn chiếu cập nhật toàn diện, ngắn gọn (2-4 câu) bằng tiếng Việt gồm:\n"
-        "- 📌 Vụ việc/Sự cố: Nguồn gốc sự việc.\n"
-        "- ⚡ Diễn biến mới nhất: Ý kiến/hành động quan trọng từ các email phản hồi gần nhất.\n"
-        "- ✅ Trạng thái & Hành động: Đang xử lý / Đã xử lý / Cần làm gì tiếp theo."
+        "Bạn là trợ lý AI chuyên gia phân tích và tổng hợp chuỗi hội thoại email công việc (Email Thread).\n"
+        "Nhiệm vụ: Hãy phân tích kỹ lưỡng [BẢN TÓM TẮT TRƯỚC ĐÓ] và [CÁC EMAIL PHÁT SINH TRONG CHUỖI] để đưa ra một bản tổng hợp cuốn chiếu chi tiết, rõ ràng, mạch lạc bằng tiếng Việt theo cấu trúc sau:\n\n"
+        "📌 1. NGUỒN GỐC & VẤN ĐỀ:\n"
+        "- Trình bày ngắn gọn vấn đề/sự cố hoặc yêu cầu công việc được nêu ra từ email ban đầu.\n\n"
+        "⚡ 2. DIỄN BIẾN & Ý KIẾN CÁC BÊN:\n"
+        "- Tóm tắt chi tiết các phản hồi, giải pháp đã đề xuất, thông tin đã cập nhật từ các bên tham gia theo trình tự thời gian.\n\n"
+        "🎯 3. HIỆN TRẠNG & HÀNH ĐỘNG TIẾP THEO (ACTION ITEMS):\n"
+        "- Tình trạng chốt lại mới nhất (Đã giải quyết / Đang xử lý / Chờ kết quả).\n"
+        "- Ai chịu trách nhiệm việc gì tiếp theo và thời hạn (nếu có)."
     )
 
     prompt_parts = [
@@ -67,21 +71,22 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
         body_snippet = (e.get("body") or e.get("summary") or "").strip()
         if not body_snippet:
             body_snippet = f"Email từ {sender} lúc {time_str}"
-        prompt_parts.append(f"Email {i} - Gửi bởi: {sender} lúc {time_str}\nNội dung: {body_snippet[:1500]}")
+        prompt_parts.append(f"Email {i} - Gửi bởi: {sender} lúc {time_str}\nNội dung:\n{body_snippet[:2000]}")
 
-    user_prompt = "\n".join(prompt_parts)
+    user_prompt = "\n\n".join(prompt_parts)
 
     def _fallback_offline():
         contents = []
         if current_summary:
-            contents.append(f"Tóm tắt trước: {current_summary}")
+            contents.append(f"--- TIẾN TRÌNH TRƯỚC ---\n{current_summary}")
         for e in new_emails:
+            sender = e.get('sender', 'Người gửi')
             txt = (e.get("body") or e.get("summary") or "").strip()
             if txt:
-                contents.append(f"Thư từ {e.get('sender', '')}: {txt[:800]}")
+                contents.append(f"--- PHẢN HỒI MỚI TỪ {sender} ---\n{txt[:1200]}")
         combined = "\n\n".join(contents)
-        if len(combined.strip()) < 15:
-            combined = f"Chuỗi hội thoại: {subject}. " + " ".join([e.get('summary', '') for e in new_emails if e.get('summary')])
+        if len(combined.strip()) < 20:
+            combined = f"Chuỗi trao đổi: {subject}. " + " ".join([e.get('summary', '') for e in new_emails if e.get('summary')])
         last_s = new_emails[-1].get("sender", "") if new_emails else ""
         return summarize_offline(combined, subject, last_s)
 
@@ -93,7 +98,7 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
     try:
         if ai_type == "Gemini":
             res = _call_gemini(api_key, sys_prompt, user_prompt)
-            if res and len(res.strip()) > 5:
+            if res and len(res.strip()) > 10:
                 return res.strip()
             return _fallback_offline()
 
@@ -106,8 +111,8 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
 
         if ai_type in openai_compatible_configs:
             url, model = openai_compatible_configs[ai_type]
-            res = _call_openai_compatible(url, model, api_key, sys_prompt, user_prompt)
-            if res and len(res.strip()) > 5:
+            res = _call_openai_compatible(url, model, api_key, sys_prompt, user_prompt, max_tokens=600)
+            if res and len(res.strip()) > 10:
                 return res.strip()
             return _fallback_offline()
 
@@ -119,12 +124,12 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
             log_callback(f"⚠️ Lỗi tóm tắt cuốn chiếu qua {ai_type}: {err_msg}")
         return _fallback_offline()
 
-def _call_openai_compatible(url, model, api_key, sys_prompt, prompt):
+def _call_openai_compatible(url, model, api_key, sys_prompt, prompt, max_tokens=400):
     headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
     payload = {
         "model": model,
         "messages": [{"role": "system", "content": sys_prompt}, {"role": "user", "content": prompt}],
-        "temperature": 0.2, "max_tokens": 300
+        "temperature": 0.2, "max_tokens": max_tokens
     }
     resp = requests.post(url, json=payload, headers=headers, timeout=20)
     if resp.status_code != 200:

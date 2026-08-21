@@ -1593,7 +1593,10 @@ class EmailReminderApp(ctk.CTk):
 
         summary = thread_item.get("current_summary", "")
         if summary:
-            txt = ctk.CTkTextbox(card, height=75, font=("Segoe UI", 10), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            # Tự động tính chiều cao hộp thoại theo độ dài nội dung (tối thiểu 90px, tối đa 220px)
+            num_lines = len(summary.split("\n"))
+            box_height = max(90, min(240, num_lines * 19 + 30))
+            txt = ctk.CTkTextbox(card, height=box_height, font=("Segoe UI", 10), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
             txt.pack(fill="x", padx=10, pady=(0, 6))
             txt.insert("1.0", summary)
             txt.configure(state="disabled")
