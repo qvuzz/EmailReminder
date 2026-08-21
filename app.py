@@ -621,6 +621,19 @@ class NotificationPopup(ctk.CTkToplevel):
             self.close_popup()
             return
         removed = self.emails.pop(self.current_idx)
+        
+        # Nếu là thread, xóa luôn khỏi threads.db
+        if removed.get("is_thread") and removed.get("thread_key"):
+            try:
+                from thread_logic import get_thread_by_key, delete_thread
+                t = get_thread_by_key(removed.get("thread_key"))
+                if t and t.get("id"):
+                    delete_thread(t["id"])
+                    if hasattr(self.parent, "refresh_threads_list"):
+                        self.parent.refresh_threads_list()
+            except Exception:
+                pass
+
         if hasattr(self.parent, "latest_notifications"):
             if removed in self.parent.latest_notifications:
                 self.parent.latest_notifications.remove(removed)
