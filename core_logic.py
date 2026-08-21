@@ -537,6 +537,34 @@ def mark_email_as_read_outlook(entry_id, log_callback=None):
     return False
 
 
+def delete_email_outlook(entry_id, log_callback=None):
+    """Xóa email trong Microsoft Outlook bằng cách chuyển vào Deleted Items / Thùng rác"""
+    if not entry_id:
+        return False
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+        item = outlook.GetItemFromID(entry_id)
+        if item:
+            subj = getattr(item, "Subject", "Email")
+            item.Delete()  # Trong Outlook MAPI, item.Delete() chuyển email vào thư mục Deleted Items
+            if log_callback:
+                log_callback(f"🗑️ [Outlook] Đã chuyển email vào Thùng rác: '{subj}'")
+            return True
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ [Outlook] Không thể xóa email: {e}")
+        return False
+    finally:
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+    return False
+
+
 def scan_all_available_folders(config, log_callback=None):
     """Quét và trả về danh sách thư mục được nhóm theo từng tài khoản email"""
     grouped_folders = {}  # group_title -> [folder_names]

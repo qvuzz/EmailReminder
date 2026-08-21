@@ -578,3 +578,83 @@ def mark_email_as_read_imap(account, actual_folder, msg_id, email_id=None, log_c
         if log_callback:
             log_callback(f"⚠️ [{account.get('name', 'Webmail')}] Lỗi đánh dấu đã đọc trên IMAP: {e}")
         return False
+
+
+def delete_email_imap(account, actual_folder, msg_id, email_id=None, log_callback=None):
+    """Xóa email trên Webmail / IMAP (chuyển vào Thùng rác và đánh dấu \\Deleted)"""
+    if not account:
+        return False
+    try:
+        server = account.get("server", "").strip()
+        port = int(account.get("port", 993))
+        user = account.get("user", "").strip()
+        pwd = decrypt_password(account.get("password", ""))
+        use_ssl = account.get("ssl", True)
+
+        if use_ssl:
+            mail = imaplib.IMAP4_SSL(server, port, timeout=15)
+        else:
+            mail = imaplib.IMAP4(server, port, timeout=15)
+
+        mail.login(user, pwd)
+        target_folder = actual_folder or "INBOX"
+        status, _ = mail.select(f'"{target_folder}"', readonly=False)
+        if status != 'OK':
+            status, _ = mail.select('INBOX', readonly=False)
+
+        # Tìm các folder thùng rác phổ biến
+        trash_folder = None
+        try:
+            status, folder_list = mail.list()
+            if status == 'OK':
+                for f_info in folder_list:
+                    f_name = f_info.decode('utf-8', errors='ignore')
+                    for kw in ['trash', 'thung rac', 'thùng rác', 'deleted', 'deleted items', 'deleted messages']:
+                        if kw in f_name.lower():
+                            parts = f_name.split(' "/" ')
+                            if len(parts) > 1:
+                                trash_folder = parts[-1].strip().strip('"')
+                            break
+                    if trash_folder:
+                        break
+        except Exception:
+            pass
+
+        target_nums = []
+        if email_id:
+            target_nums.append(str(email_id).encode())
+
+        if not target_nums and msg_id:
+            try:
+                typ, data = mail.search(None, f'HEADER Message-ID "{msg_id}"')
+                if typ == 'OK' and data and data[0]:
+                    target_nums.extend(data[0].split())
+            except Exception:
+                pass
+
+        deleted = False
+        for num in target_nums:
+            if trash_folder and trash_folder.upper() != target_folder.upper():
+                try:
+                    mail.copy(num, f'"{trash_folder}"')
+                except Exception:
+                    pass
+            mail.store(num, '+FLAGS', '(\\Deleted)')
+            deleted = True
+
+        if deleted:
+            try:
+                mail.expunge()
+            except Exception:
+                pass
+            if log_callback:
+                log_callback(f"🗑️ [{account.get('name', 'Webmail')}] Đã chuyển email vào Thùng rác.")
+            mail.logout()
+            return True
+
+        mail.logout()
+        return False
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ [{account.get('name', 'Webmail')}] Lỗi khi xóa email: {e}")
+        return False

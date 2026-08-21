@@ -210,12 +210,76 @@ def mark_thread_as_read(thread_id, config=None, log_callback=None):
 
 
 def delete_thread(thread_id):
-    """Xóa 1 thread theo ID"""
+    """Xóa 1 thread theo ID khỏi SQLite"""
     init_thread_db()
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM email_threads WHERE id = ?", (thread_id,))
         conn.commit()
+
+
+def delete_thread_with_emails(thread_id, config=None, log_callback=None):
+    """Xóa chuỗi trong DB và chuyển tất cả các email thuộc chuỗi vào Thùng rác trên Outlook & Webmail"""
+    import json
+    from core_logic import delete_email_outlook
+    from imap_logic import delete_email_imap
+
+    init_thread_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM email_threads WHERE id = ?", (thread_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        thread = dict(row)
+
+    items_str = thread.get("email_items", "[]")
+    try:
+        items = json.loads(items_str) if items_str else []
+    except Exception:
+        items = []
+
+    success_count = 0
+    accounts = config.get("imap_accounts", []) if config else []
+
+    for item in items:
+        # 1. Outlook
+        if item.get("entry_id"):
+            try:
+                res = delete_email_outlook(item["entry_id"], log_callback=log_callback)
+                if res: success_count += 1
+            except Exception:
+                pass
+        
+        # 2. IMAP
+        elif item.get("server") or item.get("user") or item.get("msg_id"):
+            matched_acc = None
+            for acc in accounts:
+                if acc.get("server") == item.get("server") or acc.get("user") == item.get("user"):
+                    matched_acc = acc
+                    break
+            if not matched_acc and accounts:
+                matched_acc = accounts[0]
+
+            if matched_acc:
+                try:
+                    res = delete_email_imap(
+                        account=matched_acc,
+                        actual_folder=item.get("actual_folder") or item.get("folder", "INBOX"),
+                        msg_id=item.get("msg_id", ""),
+                        email_id=item.get("email_id"),
+                        log_callback=log_callback
+                    )
+                    if res: success_count += 1
+                except Exception:
+                    pass
+
+    # Xóa bản ghi trong SQLite
+    delete_thread(thread_id)
+
+    if log_callback:
+        log_callback(f"🗑️ Đã xóa chuỗi và chuyển {success_count}/{len(items) if items else 1} email vào thùng rác: '{thread.get('subject')}'")
+    return True
 
 
 def clear_all_threads():
