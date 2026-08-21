@@ -232,7 +232,12 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
         # Lọc danh sách thư mục quét từ config
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         if not target_folders:
-            target_folders = ["inbox"]
+            log_callback(f"ℹ️ [{acc_name}] Cột Folders trong Rules đang trống (chưa chọn thư mục nào) -> Bỏ qua quét Webmail.")
+            try:
+                mail.logout()
+            except Exception:
+                pass
+            return []
 
         folders_to_scan = []
         for tf in target_folders:
@@ -358,10 +363,15 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
                                 found_emails.append({
                                     "account_name": acc_name,
                                     "folder": friendly_name,
+                                    "actual_folder": raw_folder,
                                     "subject": subject,
                                     "sender": sender_display,
                                     "time": recv_time.strftime("%H:%M %d/%m/%Y"),
-                                    "summary": summary
+                                    "summary": summary,
+                                    "server": acc.get("server", ""),
+                                    "user": acc.get("user", ""),
+                                    "msg_id": msg_id,
+                                    "email_id": email_id.decode() if isinstance(email_id, bytes) else str(email_id)
                                 })
                             continue
 
@@ -409,10 +419,15 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
                             found_emails.append({
                                 "account_name": acc_name,
                                 "folder": friendly_name,
+                                "actual_folder": raw_folder,
                                 "subject": subject,
                                 "sender": sender_display,
                                 "time": recv_time.strftime("%H:%M %d/%m/%Y"),
-                                "summary": summary
+                                "summary": summary,
+                                "server": acc.get("server", ""),
+                                "user": acc.get("user", ""),
+                                "msg_id": msg_id,
+                                "email_id": email_id.decode() if isinstance(email_id, bytes) else str(email_id)
                             })
                     except Exception as msg_err:
                         log_callback(f"⚠️ [{acc_name}] Lỗi đọc thư thứ {email_id}: {msg_err}")
@@ -427,7 +442,7 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
 
     return found_emails, new_ai_calls, total_unread_scanned
 
-def scan_emails_imap(config, log_callback):
+def scan_emails_imap(config, log_callback, on_emails_found_callback=None):
     """Quét các email chưa đọc trực tiếp từ danh sách các máy chủ Webmail qua cổng IMAP"""
     accounts = config.get("imap_accounts", [])
     
@@ -445,7 +460,7 @@ def scan_emails_imap(config, log_callback):
 
     if not accounts:
         log_callback("⚠️ Chưa có tài khoản Webmail/IMAP nào được cấu hình. Vui lòng thêm tài khoản ở tab Cài Đặt.")
-        return
+        return []
 
     cache = load_cache()
     all_found_emails = []
@@ -469,21 +484,90 @@ def scan_emails_imap(config, log_callback):
         if total_new_ai_calls > 0:
             save_cache(cache)
 
-        success = send_telegram_report(
-            config.get("tele_token"),
-            config.get("tele_chat_id"),
-            all_found_emails,
-            log_callback
-        )
-
-        cached_count = len(all_found_emails) - total_new_ai_calls
-        if success:
-            if total_new_ai_calls > 0:
-                log_callback(f"✅ Đã nhắc báo tổng cộng {len(all_found_emails)} email ({total_new_ai_calls} tóm tắt mới, {cached_count} từ Cache).")
+        # 1. Gửi Telegram nếu được bật
+        if config.get("enable_telegram", True):
+            tele_token = config.get("tele_token")
+            tele_chat_id = config.get("tele_chat_id")
+            if tele_token and tele_chat_id:
+                success = send_telegram_report(
+                    tele_token,
+                    tele_chat_id,
+                    all_found_emails,
+                    log_callback
+                )
+                cached_count = len(all_found_emails) - total_new_ai_calls
+                if success:
+                    if total_new_ai_calls > 0:
+                        log_callback(f"✅ Đã gửi Telegram {len(all_found_emails)} email ({total_new_ai_calls} tóm tắt mới, {cached_count} từ Cache).")
+                    else:
+                        log_callback(f"✅ Đã gửi Telegram {len(all_found_emails)} email (100% từ Cache).")
             else:
-                log_callback(f"✅ Đã nhắc báo tổng cộng {len(all_found_emails)} email (100% từ Cache).")
+                log_callback("⚠️ Kênh Telegram đang bật nhưng chưa cấu hình Token / Chat ID.")
+
+        # 2. Callback thông báo giao diện / Desktop System Tray
+        if on_emails_found_callback:
+            try:
+                on_emails_found_callback(all_found_emails)
+            except Exception as cb_err:
+                log_callback(f"⚠️ Lỗi hiển thị thông báo Desktop: {cb_err}")
+
+        return all_found_emails
     else:
         if total_unread_all_accs > 0:
             log_callback(f"ℹ️ Quét xong tất cả tài khoản: Có {total_unread_all_accs} email chưa đọc trên các server nhưng không thỏa bộ lọc.")
         else:
             log_callback("ℹ️ Quét xong: Không có email nào chưa đọc trong 48h qua trên tất cả các tài khoản.")
+        return []
+
+
+def mark_email_as_read_imap(account, actual_folder, msg_id, email_id=None, log_callback=None):
+    """Đánh dấu đã đọc email trên Webmail / IMAP"""
+    if not account:
+        return False
+    try:
+        server = account.get("server", "").strip()
+        port = int(account.get("port", 993))
+        user = account.get("user", "").strip()
+        pwd = decrypt_password(account.get("password", ""))
+        use_ssl = account.get("ssl", True)
+
+        if use_ssl:
+            mail = imaplib.IMAP4_SSL(server, port, timeout=15)
+        else:
+            mail = imaplib.IMAP4(server, port, timeout=15)
+
+        mail.login(user, pwd)
+        target_folder = actual_folder or "INBOX"
+        status, _ = mail.select(f'"{target_folder}"', readonly=False)
+        if status != 'OK':
+            status, _ = mail.select('INBOX', readonly=False)
+
+        marked = False
+        # 1. Thử đánh dấu theo email_id trước
+        if email_id:
+            try:
+                res, _ = mail.store(str(email_id), '+FLAGS', '(\\Seen)')
+                if res == 'OK':
+                    marked = True
+            except Exception:
+                pass
+
+        # 2. Nếu chưa được, tìm kiếm theo Message-ID
+        if not marked and msg_id:
+            try:
+                typ, data = mail.search(None, f'HEADER Message-ID "{msg_id}"')
+                if typ == 'OK' and data and data[0]:
+                    for num in data[0].split():
+                        mail.store(num, '+FLAGS', '(\\Seen)')
+                        marked = True
+            except Exception:
+                pass
+
+        mail.logout()
+        if log_callback:
+            log_callback(f"🌐 [{account.get('name', 'Webmail')}] Đã đánh dấu ĐÃ ĐỌC thành công trên server.")
+        return True
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ [{account.get('name', 'Webmail')}] Lỗi đánh dấu đã đọc trên IMAP: {e}")
+        return False

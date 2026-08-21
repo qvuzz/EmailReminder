@@ -1,29 +1,31 @@
-# 📬 Email Reminder v1.2 (VNPT AI Assistant)
+# 📬 Email Reminder v1.3 (VNPT AI Assistant)
 
-> **Ứng dụng tự động quét email từ Microsoft Outlook hoặc Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online) và gửi thông báo trực tiếp qua Telegram.**
+> **Ứng dụng tự động quét email từ Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi thông minh trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 
-## 🌟 Tính năng nổi bật
+## 🌟 Tính năng nổi bật trong phiên bản v1.3
 
+- 📊 **Giao diện Modern SaaS Dashboard chuẩn nhận diện VNPT:**
+  - Sidebar Menu dọc (Dark Slate Theme) kết hợp Top Navigation Bar trắng thanh lịch.
+  - 5 phân hệ chuyên biệt: **Dashboard (Tổng quan)**, **Emails (Lịch sử & Chi tiết)**, **Rules (Bộ lọc)**, **Settings (Cài đặt)**, **Help (Hướng dẫn)**.
+- 📁 **Trình Quản Lý Thư Mục Trực Tiếp (Inline Folders Manager):**
+  - Quét tự động cây thư mục từ Outlook và Webmail IMAP chỉ bằng 1 click `[🔍 Scan thư mục]`.
+  - Phân nhóm thư mục theo từng tài khoản email với Accordion Thu gọn / Mở rộng (`▼` / `▶`).
+  - Ô Checkbox `[✓]` ngay đầu tên từng tài khoản giúp chọn/bỏ chọn nhanh toàn bộ thư mục của tài khoản đó.
+  - Tự động lưu cấu hình và giữ nguyên danh sách (Persistent Cache), không bị mất các rule đã chọn khi scan cập nhật.
+- 📨 **Tính Năng Đánh Dấu Đã Đọc (Mark as Read) Đồng Bộ 3 Chiều:**
+  - **Trên Telegram:** Đính kèm nút bấm tương tác `[✓ Đánh dấu đã đọc]` (Inline Keyboard). Nhận lệnh từ xa và tự động đồng bộ đánh dấu `\Seen` trên Webmail hoặc `UnRead = False` trên Outlook.
+  - **Trên Desktop Popup & Trang Emails:** Nút `[✓ Đã đọc]` giúp xử lý nhanh email mà không cần mở Outlook/Webmail.
+- 📬 **Cửa Sổ Thông Báo Nổi Desktop (Desktop Floating Card):**
+  - Nằm gọn gàng ở góc màn hình phía trên khay hệ thống, thiết kế bo góc 12px viền xanh sang trọng.
+  - Tự động trình chiếu lần lượt các email mới mỗi 10s, có nút `[✉️ Mở Mail]` và `[✓ Đã đọc]`.
 - 🌐 **Hỗ trợ đa nguồn Email & Đa tài khoản (Multi-Account & Dual Source):**
   - **Microsoft Outlook (Local):** Đọc trực tiếp từ ứng dụng Outlook trên máy tính thông qua Windows MAPI.
   - **Đa tài khoản Webmail / IMAP (Server):** Cho phép thêm và quét đồng thời không giới hạn các tài khoản thư điện tử (VNPT Webmail, Gmail, Zimbra, Yahoo...) qua giao thức IMAP bảo mật (SSL/TLS).
-  - **Giao diện thẻ & Popup Modal hiện đại:** Quản lý danh sách tài khoản gọn gàng, thêm/sửa/xóa và test kết nối nhanh chóng qua cửa sổ Popup.
-  - **Tối ưu tốc độ quét siêu tốc (Header-First & Cache-First):** Chỉ tải header siêu nhẹ (~1KB) để đối soát, tận dụng Cache bỏ qua việc tải lại thư cũ và chỉ tải nội dung chi tiết đối với email mới.
-  - **Hỗ trợ giải mã thư mục tiếng Việt (Modified UTF-7).**
-- 🎯 **Bộ lọc linh hoạt (Multi-filter):**
-  - Lọc theo **Người gửi (Senders)**.
-  - Lọc theo **Email CC**.
-  - Lọc theo **Thư mục chỉ định (Folders)**.
-  - Lọc theo **Từ khóa tiêu đề / nội dung (Keywords)**.
 - 🤖 **Tóm tắt Email thông minh bằng AI:**
   - **Offline AI (Local):** Chạy trực tiếp trên máy tính bằng `llama-cpp-python` với mô hình *Qwen2.5-3B-Instruct GGUF* — đảm bảo bảo mật dữ liệu 100%, không cần kết nối mạng.
   - **Online Cloud AI:** Hỗ trợ linh hoạt Google Gemini, Groq, OpenAI GPT, Anthropic Claude, DeepSeek, Grok...
-- 🔔 **Thông báo tức thì qua Telegram:** Tự động định dạng tin nhắn đẹp mắt, phân biệt rõ tên tài khoản nhận thư, chia nhỏ bản tin thông minh khi có nhiều email.
-- 🖥️ **Giao diện hiện đại (Modern UI):**
-  - Xây dựng bằng `CustomTkinter` với tone màu nhận diện thương hiệu VNPT (Xanh - Trắng).
-  - Hỗ trợ chạy ngầm dưới **Khay hệ thống (System Tray)**, tự thu nhỏ và nhấp đúp để mở lại.
 - 📦 **Đóng gói 1-Click:** Cung cấp script tự động build thành file `.exe` chạy độc lập (One-File).
 
 ---

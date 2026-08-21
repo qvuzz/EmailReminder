@@ -69,28 +69,39 @@ def get_all_folders_recursive(folder, folder_dict):
     except Exception:
         pass
 
+_sender_email_cache = {}
+
 def get_real_email(msg):
-    """Lấy địa chỉ email thực sự của người gửi (xử lý cả Exchange User)"""
+    """Lấy địa chỉ email thực sự của người gửi (xử lý cả Exchange User với bộ nhớ đệm nhanh)"""
     try:
         sender_email = msg.SenderEmailAddress or ""
         if "@" in sender_email and not sender_email.startswith("/"):
             return sender_email
         
+        sender_name = msg.SenderName or ""
+        if sender_name and sender_name in _sender_email_cache:
+            return _sender_email_cache[sender_name]
+
         sender = getattr(msg, "Sender", None)
         if sender:
             ex_user = sender.GetExchangeUser()
             if ex_user and ex_user.PrimarySmtpAddress:
+                _sender_email_cache[sender_name] = ex_user.PrimarySmtpAddress
                 return ex_user.PrimarySmtpAddress
             ex_dl = sender.GetExchangeDistributionList()
             if ex_dl and ex_dl.PrimarySmtpAddress:
+                _sender_email_cache[sender_name] = ex_dl.PrimarySmtpAddress
                 return ex_dl.PrimarySmtpAddress
     except Exception:
         pass
     
     return msg.SenderName or "Unknown"
 
-def send_single_telegram_msg(token, chat_id, html_text, plain_text, log_callback):
-    """Gửi một tin nhắn đơn lẻ về Telegram (có fallback plain text và log lỗi chi tiết)"""
+# Bộ nhớ tạm lưu trữ đối tượng Email tương ứng với short_id trên Telegram
+PENDING_TELEGRAM_EMAILS = {}
+
+def send_single_telegram_msg(token, chat_id, html_text, plain_text, log_callback, reply_markup=None):
+    """Gửi một tin nhắn đơn lẻ về Telegram (hỗ trợ Inline Keyboard, có fallback plain text)"""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
@@ -98,6 +109,9 @@ def send_single_telegram_msg(token, chat_id, html_text, plain_text, log_callback
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+
     try:
         res = requests.post(url, json=payload, timeout=12)
         if res.status_code == 200:
@@ -133,7 +147,7 @@ def send_single_telegram_msg(token, chat_id, html_text, plain_text, log_callback
 send_telegram = send_single_telegram_msg
 
 def send_telegram_report(token, chat_id, found_emails, log_callback):
-    """Tự động chia nhỏ bản tin và gửi về Telegram không lo bị giới hạn ký tự"""
+    """Gửi từng email kèm nút bấm '✓ Đánh dấu đã đọc' về Telegram"""
     if not token or not chat_id:
         log_callback("⚠️ Chưa cấu hình Telegram Bot Token hoặc Chat ID.")
         return False
@@ -142,73 +156,133 @@ def send_telegram_report(token, chat_id, found_emails, log_callback):
     if total == 0:
         return True
 
-    # Tạo các khối tin nhắn nhỏ (mỗi khối tối đa 3 email hoặc < 3000 ký tự)
-    chunks = []
-    current_html = ""
-    current_plain = ""
-    chunk_count = 0
-
+    all_success = True
     for i, m in enumerate(found_emails):
-        s_subj = html.escape(m['subject'])
-        s_fold = html.escape(m['folder'])
-        s_send = html.escape(m['sender'])
-        s_time = html.escape(m['time'])
-        s_summ = html.escape(m['summary'])
+        s_subj = html.escape(m.get('subject', ''))
+        s_fold = html.escape(m.get('folder', ''))
+        s_send = html.escape(m.get('sender', ''))
+        s_time = html.escape(m.get('time', ''))
+        s_summ = html.escape(m.get('summary', ''))
 
         acc_name = m.get('account_name', '')
         acc_str_html = f" | 🏢 <i>{html.escape(acc_name)}</i>" if acc_name else ""
         acc_str_plain = f" | 🏢 {acc_name}" if acc_name else ""
 
+        header_h = f"📬 <b>THÔNG BÁO EMAIL MỚI ({i+1}/{total})</b>\n\n"
+        header_p = f"📬 THÔNG BÁO EMAIL MỚI ({i+1}/{total})\n\n"
+
         item_html = (
-            f"<b>{i+1}. 📌 Tiêu đề:</b> <b>{s_subj}</b>\n"
+            header_h +
+            f"📌 <b>Tiêu đề:</b> <b>{s_subj}</b>\n"
             f"👤 <b>Người gửi:</b> {s_send}\n"
-            f"⏰ <b>Thời gian:</b> {s_time} | 📁 {s_fold}{acc_str_html}\n"
-            f"💡 <b>Tóm tắt:</b> {s_summ}\n\n"
-            f"────────────────────\n\n"
+            f"⏰ <b>Thời gian:</b> {s_time} | 📁 {s_fold}{acc_str_html}\n\n"
+            f"💡 <b>Tóm tắt nội dung:</b>\n{s_summ}"
         )
         item_plain = (
-            f"{i+1}. 📌 Tiêu đề: {m['subject']}\n"
-            f"👤 Người gửi: {m['sender']}\n"
-            f"⏰ Thời gian: {m['time']} | 📁 {m['folder']}{acc_str_plain}\n"
-            f"💡 Tóm tắt: {m['summary']}\n\n"
-            f"────────────────────\n\n"
+            header_p +
+            f"📌 Tiêu đề: {m.get('subject', '')}\n"
+            f"👤 Người gửi: {m.get('sender', '')}\n"
+            f"⏰ Thời gian: {m.get('time', '')} | 📁 {m.get('folder', '')}{acc_str_plain}\n\n"
+            f"💡 Tóm tắt nội dung:\n{m.get('summary', '')}"
         )
 
-        # Nếu thêm email này vào làm tin nhắn dài hơn 3000 ký tự -> ngắt sang tin nhắn mới
-        if len(current_html) + len(item_html) > 3000 and current_html != "":
-            chunks.append((current_html, current_plain))
-            current_html = item_html
-            current_plain = item_plain
-        else:
-            current_html += item_html
-            current_plain += item_plain
+        import uuid
+        short_id = uuid.uuid4().hex[:10]
+        PENDING_TELEGRAM_EMAILS[short_id] = m
 
-    if current_html:
-        chunks.append((current_html, current_plain))
+        reply_markup = {
+            "inline_keyboard": [
+                [{"text": "✓ Đánh dấu đã đọc", "callback_data": f"read:{short_id}"}]
+            ]
+        }
 
-    # Gửi lần lượt từng khối tin nhắn
-    all_success = True
-    for idx, (h_text, p_text) in enumerate(chunks):
-        header_h = f"📬 <b>THÔNG BÁO: CÓ {total} EMAIL CHƯA ĐỌC</b>"
-        header_p = f"📬 THÔNG BÁO: CÓ {total} EMAIL CHƯA ĐỌC"
-        if len(chunks) > 1:
-            header_h += f" (Phần {idx+1}/{len(chunks)})\n\n"
-            header_p += f" (Phần {idx+1}/{len(chunks)})\n\n"
-        else:
-            header_h += "\n\n"
-            header_p += "\n\n"
-
-        ok = send_single_telegram_msg(token, chat_id, header_h + h_text, header_p + p_text, log_callback)
+        ok = send_single_telegram_msg(token, chat_id, item_html, item_plain, log_callback, reply_markup=reply_markup)
         if not ok:
             all_success = False
 
     return all_success
 
 
-def scan_emails(config, log_callback):
+def telegram_polling_worker(config_getter, mark_read_callback, log_callback, stop_event):
+    """Luồng chạy ngầm lắng nghe và phản hồi khi người dùng bấm '✓ Đánh dấu đã đọc' trên Telegram"""
+    offset = 0
+    import time
+    while not stop_event.is_set():
+        config = config_getter()
+        if not config.get("enable_telegram", True):
+            time.sleep(2)
+            continue
+
+        token = config.get("tele_token", "").strip()
+        if not token:
+            time.sleep(2)
+            continue
+
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        try:
+            params = {"offset": offset, "timeout": 12, "allowed_updates": ["callback_query"]}
+            resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                for update in data.get("result", []):
+                    offset = update["update_id"] + 1
+                    if "callback_query" in update:
+                        cb = update["callback_query"]
+                        cb_id = cb["id"]
+                        cb_data = cb.get("data", "")
+                        msg = cb.get("message", {})
+                        chat_id = msg.get("chat", {}).get("id")
+                        msg_id = msg.get("message_id")
+
+                        if cb_data.startswith("read:"):
+                            short_id = cb_data.split("read:", 1)[1]
+                            email_obj = PENDING_TELEGRAM_EMAILS.get(short_id)
+                            now_time = datetime.now().strftime("%H:%M")
+                            
+                            # 1. Phản hồi popup toast nhỏ trên màn hình điện thoại Telegram
+                            try:
+                                requests.post(
+                                    f"https://api.telegram.org/bot{token}/answerCallbackQuery",
+                                    json={"callback_query_id": cb_id, "text": f"✅ Đã đánh dấu đã đọc lúc {now_time}!"},
+                                    timeout=8
+                                )
+                            except Exception:
+                                pass
+
+                            # 2. Đổi nút bấm thành [✅ Đã đọc lúc HH:MM]
+                            if chat_id and msg_id:
+                                try:
+                                    requests.post(
+                                        f"https://api.telegram.org/bot{token}/editMessageReplyMarkup",
+                                        json={
+                                            "chat_id": chat_id,
+                                            "message_id": msg_id,
+                                            "reply_markup": {
+                                                "inline_keyboard": [
+                                                    [{"text": f"✅ Đã đọc lúc {now_time}", "callback_data": "none"}]
+                                                ]
+                                            }
+                                        },
+                                        timeout=8
+                                    )
+                                except Exception:
+                                    pass
+
+                            # 3. Kích hoạt đánh dấu đã đọc trên hệ thống Outlook / Webmail
+                            if email_obj and mark_read_callback:
+                                mark_read_callback(email_obj)
+                                if log_callback:
+                                    log_callback(f"📱 [Telegram] Người dùng đã bấm ĐÃ ĐỌC email '{email_obj.get('subject')[:30]}...'")
+        except Exception:
+            pass
+        
+        time.sleep(1)
+
+
+def scan_emails(config, log_callback, on_emails_found_callback=None):
     if not HAS_WIN32:
         log_callback("❌ Lỗi: Chức năng quét Outlook chỉ hoạt động trên hệ điều hành Windows.")
-        return
+        return []
     pythoncom.CoInitialize()
     try:
         outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
@@ -231,6 +305,10 @@ def scan_emails(config, log_callback):
         explicit_folder_ids = set()
         
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
+        if not target_folders:
+            log_callback("ℹ️ [Outlook] Cột Folders trong Rules đang trống (chưa chọn thư mục nào) -> Bỏ qua quét Outlook.")
+            return []
+
         for tf in target_folders:
             if tf in all_folders:
                 f_dict = {}
@@ -240,19 +318,17 @@ def scan_emails(config, log_callback):
             else:
                 log_callback(f"⚠️ Không tìm thấy thư mục '{tf}' trong Outlook (có thể tên sai hoặc chưa tạo)")
         
+        if not folders_to_scan:
+            log_callback("ℹ️ [Outlook] Không tìm thấy thư mục nào khớp trong danh sách đã chọn -> Bỏ qua.")
+            return []
+
         target_senders = [_norm(s) for s in config.get("senders", []) if s.strip()]
         target_cc = [_norm(c) for c in config.get("cc_emails", []) if c.strip()]
         target_keywords = [_norm(k) for k in config.get("keywords", []) if k.strip()]
         
-        # Nếu có cấu hình Senders hoặc Keywords -> luôn bổ sung Inbox và các thư mục con vào phạm vi quét
-        default_inbox = outlook.GetDefaultFolder(6)
-        if target_senders or target_keywords or not folders_to_scan:
-            add_folder_and_all_subfolders(default_inbox, folders_to_scan)
-        
         has_any_filter = bool(target_folders or target_senders or target_cc or target_keywords)
         
-        if target_folders:
-            log_callback(f"📁 Bộ lọc thư mục: {', '.join(target_folders)}")
+        log_callback(f"📁 Bộ lọc thư mục: {', '.join(target_folders)}")
         log_callback(f"👤 Bộ lọc senders: {target_senders if target_senders else '(Không lọc)'}")
         if target_keywords:
             log_callback(f"🔑 Bộ lọc từ khóa ({len(target_keywords)} từ): {', '.join(target_keywords)}")
@@ -340,6 +416,7 @@ def scan_emails(config, log_callback):
                     if should_read:
                         subject = subject_raw
                         body = body_raw
+                        log_callback(f"🎯 Khớp email: '{subject[:40]}' từ {sender_display}")
                         
                         # --- CƠ CHẾ SMART CACHE ---
                         if entry_id in cache and cache[entry_id].get("summary") and not cache[entry_id]["summary"].startswith("[Lỗi"):
@@ -347,6 +424,7 @@ def scan_emails(config, log_callback):
                         else:
                             new_ai_calls += 1
                             ai_engine = config.get("ai_engine", "Offline")
+                            log_callback(f"🤖 Đang tóm tắt AI [{ai_engine}] cho: '{subject[:35]}...'")
                             try:
                                 if "Offline" in ai_engine:
                                     summary = summarize_offline(body, subject, sender_display)
@@ -371,7 +449,8 @@ def scan_emails(config, log_callback):
                             "subject": subject,
                             "sender": sender_display,
                             "time": recv_time.strftime("%H:%M %d/%m/%Y"),
-                            "summary": summary
+                            "summary": summary,
+                            "entry_id": entry_id
                         })
                 except Exception as msg_err:
                     log_callback(f"⚠️ Lỗi xử lý item: {type(msg_err).__name__}: {msg_err}")
@@ -382,27 +461,155 @@ def scan_emails(config, log_callback):
             if new_ai_calls > 0:
                 save_cache(cache)
 
-            # Tự động chia nhỏ và gửi bản tin qua Telegram (tránh lỗi Telegram 400 Bad Request khi tin nhắn dài)
-            success = send_telegram_report(
-                config.get("tele_token"), 
-                config.get("tele_chat_id"), 
-                found_emails, 
-                log_callback
-            )
-
-            cached_count = len(found_emails) - new_ai_calls
-            if success:
-                if new_ai_calls > 0:
-                    log_callback(f"✅ Đã gửi báo cáo {len(found_emails)} email ({new_ai_calls} tóm tắt mới qua AI, {cached_count} từ Cache).")
+            # 1. Gửi Telegram nếu được bật
+            if config.get("enable_telegram", True):
+                tele_token = config.get("tele_token")
+                tele_chat_id = config.get("tele_chat_id")
+                if tele_token and tele_chat_id:
+                    success = send_telegram_report(
+                        tele_token, 
+                        tele_chat_id, 
+                        found_emails, 
+                        log_callback
+                    )
+                    cached_count = len(found_emails) - new_ai_calls
+                    if success:
+                        if new_ai_calls > 0:
+                            log_callback(f"✅ Đã gửi Telegram {len(found_emails)} email ({new_ai_calls} tóm tắt mới qua AI, {cached_count} từ Cache).")
+                        else:
+                            log_callback(f"✅ Đã gửi Telegram {len(found_emails)} email (100% từ Cache, không tốn API).")
                 else:
-                    log_callback(f"✅ Đã nhắc nhở {len(found_emails)} email (100% từ Cache, không tốn API).")
+                    log_callback("⚠️ Kênh Telegram đang bật nhưng chưa cấu hình Token / Chat ID.")
+            
+            # 2. Callback thông báo giao diện / Desktop System Tray
+            if on_emails_found_callback:
+                try:
+                    on_emails_found_callback(found_emails)
+                except Exception as cb_err:
+                    log_callback(f"⚠️ Lỗi hiển thị thông báo Desktop: {cb_err}")
+
+            return found_emails
         else:
             if total_unread_scanned > 0:
-                log_callback(f"ℹ️ Quét xong: Có {total_unread_scanned} email chưa đọc nhưng không khớp bộ lọc (Senders / Folders).")
+                log_callback(f"ℹ️ Quét xong: Đã quét {total_unread_scanned} email chưa đọc trong 48h nhưng không có email nào khớp bộ lọc (Senders: {target_senders or '(Tất cả)'}, Keywords: {target_keywords or '(Tất cả)'}).")
             else:
                 log_callback("ℹ️ Quét xong: Không có email nào chưa đọc trong 48h qua.")
+            return []
             
     except Exception as e:
         log_callback(f"❌ Lỗi hệ thống khi quét mail: {e}")
     finally:
         pythoncom.CoUninitialize()
+
+
+def mark_email_as_read_outlook(entry_id, log_callback=None):
+    """Đánh dấu đã đọc email trong Microsoft Outlook bằng EntryID"""
+    if not entry_id:
+        return False
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+        item = outlook.GetItemFromID(entry_id)
+        if item:
+            item.UnRead = False
+            item.Save()
+            if log_callback:
+                log_callback(f"📨 [Outlook] Đã đánh dấu ĐÃ ĐỌC thành công: '{item.Subject}'")
+            return True
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ [Outlook] Không thể đánh dấu đã đọc: {e}")
+        return False
+    finally:
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+    return False
+
+
+def scan_all_available_folders(config, log_callback=None):
+    """Quét và trả về danh sách thư mục được nhóm theo từng tài khoản email"""
+    grouped_folders = {}  # group_title -> [folder_names]
+
+    def _sort_folders(names_list):
+        def _k(n):
+            norm = _norm(n)
+            if norm in ["inbox", "hộp thư đến", "hop thu den"]:
+                return (0, n.lower())
+            return (1, n.lower())
+        return sorted(list(dict.fromkeys(names_list)), key=_k)
+
+    # 1. Quét Microsoft Outlook
+    if config.get("enable_outlook", True) and HAS_WIN32:
+        try:
+            pythoncom.CoInitialize()
+            outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+            
+            for acc in outlook.Folders:
+                acc_name = acc.Name
+                store_folders = {}
+                try:
+                    get_all_folders_recursive(acc, store_folders)
+                except Exception:
+                    pass
+                if store_folders:
+                    folder_names = [f.Name for f in store_folders.values()]
+                    group_title = f"Microsoft Outlook ({acc_name})"
+                    grouped_folders[group_title] = _sort_folders(folder_names)
+
+            if not grouped_folders:
+                all_folders = {}
+                try:
+                    get_all_folders_recursive(outlook.GetDefaultFolder(6).Parent, all_folders)
+                    if all_folders:
+                        grouped_folders["Microsoft Outlook"] = _sort_folders([f.Name for f in all_folders.values()])
+                except Exception:
+                    pass
+        except Exception as e:
+            if log_callback:
+                log_callback(f"⚠️ Không thể quét thư mục Outlook: {e}")
+        finally:
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
+
+    # 2. Quét Webmail / IMAP
+    if config.get("enable_imap", False):
+        import imaplib
+        from imap_logic import get_imap_folders, decode_utf7_imap
+        from security import decrypt_password
+
+        accounts = config.get("imap_accounts", [])
+        for acc in accounts:
+            acc_name = acc.get("name", "Webmail")
+            user = acc.get("user", "").strip()
+            group_title = f"{acc_name} ({user})" if user else acc_name
+            try:
+                server = acc.get("server", "").strip()
+                port = int(acc.get("port", 993))
+                pwd = decrypt_password(acc.get("password", ""))
+                use_ssl = acc.get("ssl", True)
+                if server and user and pwd:
+                    if use_ssl:
+                        mail = imaplib.IMAP4_SSL(server, port, timeout=10)
+                    else:
+                        mail = imaplib.IMAP4(server, port, timeout=10)
+                    mail.login(user, pwd)
+                    raw_folders = get_imap_folders(mail, lambda m: None)
+                    clean_names = []
+                    for rf in raw_folders:
+                        clean_name = decode_utf7_imap(rf.strip('"'))
+                        if clean_name:
+                            clean_names.append(clean_name)
+                    mail.logout()
+                    if clean_names:
+                        grouped_folders[group_title] = _sort_folders(clean_names)
+            except Exception as e:
+                if log_callback:
+                    log_callback(f"⚠️ [{acc_name}] Không thể quét thư mục IMAP: {e}")
+
+    return grouped_folders
