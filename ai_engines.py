@@ -49,37 +49,53 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
 
     sys_prompt = (
         "Bạn là trợ lý AI chuyên tổng hợp và cập nhật chuỗi hội thoại email công việc (Email Thread).\n"
-        "Nhiệm vụ: Hãy phân tích [BẢN TÓM TẮT TRƯỚC ĐÓ] và [CÁC EMAIL MỚI PHÁT SINH] để đưa ra MỘT bản tóm tắt cuốn chiếu cập nhật toàn diện, ngắn gọn (3-5 câu) bằng tiếng Việt gồm:\n"
-        "1. 📌 Vụ việc/Sự cố: Tóm tắt ngắn gọn nguồn gốc sự việc.\n"
-        "2. ⚡ Diễn biến mới nhất: Diễn biến quan trọng từ các email phản hồi gần nhất.\n"
-        "3. ✅ Trạng thái & Hành động: Trạng thái hiện tại (Đang xử lý / Đã khắc phục / Chờ phản hồi) và ai cần làm gì tiếp theo."
+        "Nhiệm vụ: Hãy phân tích [BẢN TÓM TẮT TRƯỚC ĐÓ] và [CÁC EMAIL PHÁT SINH] để đưa ra MỘT bản tóm tắt cuốn chiếu cập nhật toàn diện, ngắn gọn (2-4 câu) bằng tiếng Việt gồm:\n"
+        "- 📌 Vụ việc/Sự cố: Nguồn gốc sự việc.\n"
+        "- ⚡ Diễn biến mới nhất: Ý kiến/hành động quan trọng từ các email phản hồi gần nhất.\n"
+        "- ✅ Trạng thái & Hành động: Đang xử lý / Đã xử lý / Cần làm gì tiếp theo."
     )
 
     prompt_parts = [
         f"Chuỗi email: {subject}",
-        f"\n[BẢN TÓM TẮT TRƯỚC ĐÓ]:\n{current_summary if current_summary else '(Đây là chuỗi email mới bắt đầu tổng hợp)'}",
-        "\n[CÁC EMAIL MỚI PHÁT SINH TRONG CHUỖI]:"
+        f"\n[BẢN TÓM TẮT TRƯỚC ĐÓ]:\n{current_summary if current_summary else '(Chưa có bản tóm tắt trước đó)'}",
+        "\n[CÁC EMAIL PHÁT SINH TRONG CHUỖI]:"
     ]
 
     for i, e in enumerate(new_emails, 1):
         sender = e.get("sender", "Người gửi")
         time_str = e.get("time", "")
-        body_snippet = e.get("body", "")[:1200]
-        if not body_snippet and e.get("summary"):
-            body_snippet = e.get("summary")
-        prompt_parts.append(f"Email {i} - Gửi bởi: {sender} lúc {time_str}\nNội dung: {body_snippet}")
+        body_snippet = (e.get("body") or e.get("summary") or "").strip()
+        if not body_snippet:
+            body_snippet = f"Email từ {sender} lúc {time_str}"
+        prompt_parts.append(f"Email {i} - Gửi bởi: {sender} lúc {time_str}\nNội dung: {body_snippet[:1500]}")
 
     user_prompt = "\n".join(prompt_parts)
+
+    def _fallback_offline():
+        contents = []
+        if current_summary:
+            contents.append(f"Tóm tắt trước: {current_summary}")
+        for e in new_emails:
+            txt = (e.get("body") or e.get("summary") or "").strip()
+            if txt:
+                contents.append(f"Thư từ {e.get('sender', '')}: {txt[:800]}")
+        combined = "\n\n".join(contents)
+        if len(combined.strip()) < 15:
+            combined = f"Chuỗi hội thoại: {subject}. " + " ".join([e.get('summary', '') for e in new_emails if e.get('summary')])
+        last_s = new_emails[-1].get("sender", "") if new_emails else ""
+        return summarize_offline(combined, subject, last_s)
 
     if "Offline" in ai_type or not api_key:
         if log_callback:
             log_callback(f"ℹ️ Đang tóm tắt cuốn chiếu Thread bằng Offline AI...")
-        combined_body = f"{current_summary}\n" + "\n".join([e.get('body', '')[:600] for e in new_emails])
-        return summarize_offline(combined_body, subject, new_emails[-1].get("sender", ""))
+        return _fallback_offline()
 
     try:
         if ai_type == "Gemini":
-            return _call_gemini(api_key, sys_prompt, user_prompt)
+            res = _call_gemini(api_key, sys_prompt, user_prompt)
+            if res and len(res.strip()) > 5:
+                return res.strip()
+            return _fallback_offline()
 
         openai_compatible_configs = {
             "Groq": ("https://api.groq.com/openai/v1/chat/completions", "openai/gpt-oss-120b"),
@@ -90,16 +106,18 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
 
         if ai_type in openai_compatible_configs:
             url, model = openai_compatible_configs[ai_type]
-            return _call_openai_compatible(url, model, api_key, sys_prompt, user_prompt)
+            res = _call_openai_compatible(url, model, api_key, sys_prompt, user_prompt)
+            if res and len(res.strip()) > 5:
+                return res.strip()
+            return _fallback_offline()
 
-        return summarize_offline(user_prompt, subject, new_emails[-1].get("sender", ""))
+        return _fallback_offline()
 
     except Exception as e:
         err_msg = str(e)
         if log_callback:
             log_callback(f"⚠️ Lỗi tóm tắt cuốn chiếu qua {ai_type}: {err_msg}")
-        combined_body = f"{current_summary}\n" + "\n".join([e.get('body', '')[:600] for e in new_emails])
-        return summarize_offline(combined_body, subject, new_emails[-1].get("sender", ""))
+        return _fallback_offline()
 
 def _call_openai_compatible(url, model, api_key, sys_prompt, prompt):
     headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}

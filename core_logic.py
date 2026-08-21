@@ -450,6 +450,7 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
                             "sender": sender_display,
                             "time": recv_time.strftime("%H:%M %d/%m/%Y"),
                             "summary": summary,
+                            "body": body,
                             "entry_id": entry_id
                         })
                 except Exception as msg_err:

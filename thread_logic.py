@@ -210,15 +210,18 @@ def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None
         existing = t_info["existing_db"]
         cleaned_subj = t_info["cleaned_subject"]
 
-        # Nếu chỉ có 1 email, không có trong DB và không phải reply/forward -> Standalone
-        is_reply = any(normalize_thread_subject(e.get("subject", ""))[2] for e in emails_list)
-        if not existing and len(emails_list) == 1 and not is_reply:
+        # QUY TẮC PHÂN LOẠI CHUỖI HỘI THOẠI:
+        # Chuỗi hội thoại (Thread) CHỈ ĐƯỢC TẠO HOẶC CẬP NHẬT KHI:
+        # 1. Đã có thread trong DB trước đó (existing is not None -> email này là phản hồi tiếp theo).
+        # 2. Hoặc trong đợt quét hiện tại có từ 2 email trở lên cùng chủ đề (len(emails_list) >= 2).
+        # -> Nếu chưa có trong DB VÀ chỉ có 1 email duy nhất: Giữ nguyên là email đơn lẻ (Standalone)!
+        if not existing and len(emails_list) < 2:
             standalone_emails.extend(emails_list)
             continue
 
-        # Ngược lại: Đây là một Thread!
+        # Ngược lại: Đây chính xác là một Thread!
         if log_callback:
-            log_callback(f"🧵 Phát hiện chuỗi hội thoại ({len(emails_list)} email mới): '{cleaned_subj}'")
+            log_callback(f"🧵 Đang xử lý chuỗi hội thoại ({len(emails_list)} email mới): '{cleaned_subj}'")
 
         old_count = existing["email_count"] if existing else 0
         old_summary = existing["current_summary"] if existing else ""
