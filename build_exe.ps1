@@ -8,14 +8,9 @@ Get-Process -Name "eMail_Assistant", "eMail_Smart_Assistant", "Email_Reminder", 
 Start-Sleep -Seconds 2
 
 # Xóa file .exe cũ trực tiếp để tránh PermissionError
-if (Test-Path "dist\eMail_Assistant.exe") {
-    try {
-        Remove-Item -Force "dist\eMail_Assistant.exe" -ErrorAction Stop
-        Write-Host "  Da xoa file .exe cu." -ForegroundColor Gray
-    } catch {
-        Write-Host "[!] CANH BAO: Khong the xoa file .exe cu. Vui long dong ung dung truoc!" -ForegroundColor Red
-        Read-Host "Nhan Enter de thu lai hoac Ctrl+C de thoat"
-        Remove-Item -Force "dist\eMail_Assistant.exe" -ErrorAction SilentlyContinue
+@("dist\eMail_Assistant.exe", "dist\eMail_Smart_Assistant.exe", "dist\Email_Reminder.exe") | ForEach-Object {
+    if (Test-Path $_) {
+        Remove-Item -Force $_ -ErrorAction SilentlyContinue
     }
 }
 
@@ -67,9 +62,6 @@ if ($LASTEXITCODE -eq 0) {
     if (Test-Path "data\config.json") {
         if (-not (Test-Path "dist\data")) { New-Item -ItemType Directory -Path "dist\data" | Out-Null }
         Copy-Item -Path "data\config.json" -Destination "dist\data\config.json" -Force -ErrorAction SilentlyContinue
-    }
-    if (Test-Path "dist\eMail_Assistant.exe") {
-        Copy-Item -Path "dist\eMail_Assistant.exe" -Destination "dist\Email_Reminder.exe" -Force -ErrorAction SilentlyContinue
     }
 
     Write-Host ""
