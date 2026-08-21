@@ -488,7 +488,22 @@ class NotificationPopup(ctk.CTkToplevel):
             font=("Segoe UI", 11, "bold"),
             command=self.mark_current_email_read
         )
-        self.btn_read.pack(side="left")
+        self.btn_read.pack(side="left", padx=(0, 6))
+
+        self.btn_delete_notif = ctk.CTkButton(
+            action_box,
+            text="🗑️ Xóa",
+            width=62,
+            height=30,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color=COLOR_RED_BTN,
+            hover_color="#FEF2F2",
+            font=("Segoe UI", 11, "bold"),
+            command=self.delete_current_notification
+        )
+        self.btn_delete_notif.pack(side="left")
 
         self.txt_content = ctk.CTkTextbox(
             self.card, 
@@ -596,8 +611,30 @@ class NotificationPopup(ctk.CTkToplevel):
             return
         email = self.emails[self.current_idx]
         self.countdown = 10
-        if hasattr(self.parent, "mark_email_read"):
+        if email.get("is_thread") and hasattr(self.parent, "mark_thread_read_ui"):
+            self.parent.mark_thread_read_ui(email)
+        elif hasattr(self.parent, "mark_email_read"):
             self.parent.mark_email_read(email)
+
+    def delete_current_notification(self):
+        if not self.emails:
+            self.close_popup()
+            return
+        removed = self.emails.pop(self.current_idx)
+        if hasattr(self.parent, "latest_notifications"):
+            if removed in self.parent.latest_notifications:
+                self.parent.latest_notifications.remove(removed)
+                if hasattr(self.parent, "filter_emails_history"):
+                    self.parent.filter_emails_history()
+        
+        if not self.emails:
+            self.close_popup()
+            return
+
+        if self.current_idx >= len(self.emails):
+            self.current_idx = 0
+        self.countdown = 10
+        self.render_email()
 
     def open_app_clicked(self):
         if self.on_open_app:
@@ -1228,6 +1265,31 @@ class EmailReminderApp(ctk.CTk):
         )
         btn_copy.pack(side="left")
 
+        btn_del = ctk.CTkButton(
+            btn_row,
+            text="🗑️ Xóa",
+            width=60,
+            height=26,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color="#CBD5E1",
+            text_color=COLOR_RED_BTN,
+            hover_color="#FEF2F2",
+            font=("Segoe UI", 10, "bold"),
+            command=lambda e=email: self.delete_single_email_from_history(e)
+        )
+        btn_del.pack(side="right")
+
+    def delete_single_email_from_history(self, email):
+        """Xóa 1 email cụ thể khỏi danh sách lịch sử"""
+        if email in self.latest_notifications:
+            self.latest_notifications.remove(email)
+            self.stat_unread_count = len(self.latest_notifications)
+            if hasattr(self, 'lbl_stat_unread'):
+                self.lbl_stat_unread.configure(text=str(self.stat_unread_count))
+            self.filter_emails_history()
+            self.log(f"Đã xóa email khỏi danh sách: '{email.get('subject', '')}'")
+
     def mark_email_read(self, email):
         """Đánh dấu đã đọc trên Outlook hoặc Webmail/IMAP và loại bỏ khỏi danh sách thông báo"""
         if not email:
@@ -1589,20 +1651,35 @@ class EmailReminderApp(ctk.CTk):
         ctk.CTkLabel(card, text=f"👤 Phản hồi gần nhất: {last_sender}", font=("Segoe UI", 10, "bold"), text_color=COLOR_TEXT_MAIN, anchor="w").pack(fill="x", padx=10, pady=(2, 0))
 
         subj = thread_item.get("subject", "(Không tiêu đề)")
-        ctk.CTkLabel(card, text=f"🧵 {subj}", font=("Segoe UI", 11, "bold"), text_color=COLOR_PRIMARY_BLUE, anchor="w").pack(fill="x", padx=10, pady=(2, 4))
+        ctk.CTkLabel(card, text=f"🧵 {subj}", font=("Segoe UI", 12, "bold"), text_color=COLOR_PRIMARY_BLUE, anchor="w").pack(fill="x", padx=10, pady=(2, 4))
 
         summary = thread_item.get("current_summary", "")
         if summary:
-            # Tự động tính chiều cao hộp thoại theo độ dài nội dung (tối thiểu 90px, tối đa 220px)
+            # Tự động tính chiều cao hộp thoại theo độ dài nội dung (tối thiểu 95px, tối đa 240px)
             num_lines = len(summary.split("\n"))
-            box_height = max(90, min(240, num_lines * 19 + 30))
-            txt = ctk.CTkTextbox(card, height=box_height, font=("Segoe UI", 10), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            box_height = max(95, min(240, num_lines * 20 + 35))
+            txt = ctk.CTkTextbox(card, height=box_height, font=("Segoe UI", 11), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
             txt.pack(fill="x", padx=10, pady=(0, 6))
             txt.insert("1.0", summary)
             txt.configure(state="disabled")
 
         btn_row = ctk.CTkFrame(card, fg_color="transparent")
         btn_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        btn_mark_thread = ctk.CTkButton(
+            btn_row,
+            text="✓ Đã đọc",
+            width=76,
+            height=26,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color=COLOR_PRIMARY_BLUE,
+            text_color=COLOR_PRIMARY_BLUE,
+            hover_color="#F0F7FF",
+            font=("Segoe UI", 10, "bold"),
+            command=lambda t=thread_item: self.mark_thread_read_ui(t)
+        )
+        btn_mark_thread.pack(side="left", padx=(0, 6))
 
         btn_copy = ctk.CTkButton(
             btn_row,
@@ -1622,17 +1699,36 @@ class EmailReminderApp(ctk.CTk):
         btn_del = ctk.CTkButton(
             btn_row,
             text="🗑️ Xóa chuỗi",
-            width=80,
+            width=85,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
             border_color="#CBD5E1",
             text_color=COLOR_RED_BTN,
             hover_color="#FEF2F2",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 10, "bold"),
             command=lambda tid=thread_item.get("id"): self.delete_single_thread_ui(tid)
         )
         btn_del.pack(side="right")
+
+    def mark_thread_read_ui(self, thread_item):
+        from thread_logic import mark_thread_as_read
+        tid = thread_item.get("id")
+        if not tid:
+            from thread_logic import get_thread_by_key
+            found = get_thread_by_key(thread_item.get("thread_key"))
+            if found: tid = found.get("id")
+
+        if tid:
+            mark_thread_as_read(tid, config=self.config, log_callback=self.log)
+            # Đồng bộ loại bỏ khỏi popup thông báo nếu đang mở
+            if hasattr(self, 'notification_popup') and self.notification_popup and self.notification_popup.winfo_exists():
+                self.notification_popup.emails = [e for e in self.notification_popup.emails if e.get("thread_key") != thread_item.get("thread_key")]
+                if not self.notification_popup.emails:
+                    self.notification_popup.close_popup()
+                else:
+                    self.notification_popup.render_email()
+            self.log(f"✅ Đã xử lý đánh dấu ĐÃ ĐỌC toàn bộ chuỗi: '{thread_item.get('subject')}'")
 
     def copy_thread_summary_ui(self, thread_item):
         text = f"Chuỗi email: {thread_item.get('subject')}\nSố lượng thư: {thread_item.get('email_count')}\nCập nhật gần nhất: {thread_item.get('last_updated')}\nPhản hồi gần nhất: {thread_item.get('last_sender')}\n\nTóm tắt sự việc:\n{thread_item.get('current_summary')}"

@@ -35,9 +35,14 @@ def init_thread_db():
                 last_updated TEXT NOT NULL,
                 account_name TEXT DEFAULT '',
                 folder TEXT DEFAULT '',
-                last_sender TEXT DEFAULT ''
+                last_sender TEXT DEFAULT '',
+                email_items TEXT DEFAULT '[]'
             )
         """)
+        try:
+            cursor.execute("ALTER TABLE email_threads ADD COLUMN email_items TEXT DEFAULT '[]'")
+        except Exception:
+            pass
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_thread_key ON email_threads(thread_key)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_updated ON email_threads(last_updated)")
         conn.commit()
@@ -120,14 +125,16 @@ def get_all_threads(limit=200, search_kw=""):
         return [dict(r) for r in rows]
 
 
-def save_or_update_thread(thread_key, subject, current_summary, email_count, last_updated, account_name="", folder="", last_sender=""):
+def save_or_update_thread(thread_key, subject, current_summary, email_count, last_updated, account_name="", folder="", last_sender="", email_items=None):
     """Lưu mới hoặc cập nhật một Thread vào threads.db"""
+    import json
     init_thread_db()
+    items_json = json.dumps(email_items or [], ensure_ascii=False)
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO email_threads (thread_key, subject, current_summary, email_count, last_updated, account_name, folder, last_sender)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO email_threads (thread_key, subject, current_summary, email_count, last_updated, account_name, folder, last_sender, email_items)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(thread_key) DO UPDATE SET
                 subject = excluded.subject,
                 current_summary = excluded.current_summary,
@@ -135,9 +142,71 @@ def save_or_update_thread(thread_key, subject, current_summary, email_count, las
                 last_updated = excluded.last_updated,
                 account_name = excluded.account_name,
                 folder = excluded.folder,
-                last_sender = excluded.last_sender
-        """, (thread_key, subject, current_summary, email_count, last_updated, account_name, folder, last_sender))
+                last_sender = excluded.last_sender,
+                email_items = excluded.email_items
+        """, (thread_key, subject, current_summary, email_count, last_updated, account_name, folder, last_sender, items_json))
         conn.commit()
+
+
+def mark_thread_as_read(thread_id, config=None, log_callback=None):
+    """Đánh dấu ĐÃ ĐỌC tất cả các email trong Thread trên Outlook và Webmail/IMAP"""
+    import json
+    from core_logic import mark_email_as_read_outlook
+    from imap_logic import mark_email_as_read_imap
+
+    init_thread_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM email_threads WHERE id = ?", (thread_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        thread = dict(row)
+
+    items_str = thread.get("email_items", "[]")
+    try:
+        items = json.loads(items_str) if items_str else []
+    except Exception:
+        items = []
+
+    success_count = 0
+    accounts = config.get("imap_accounts", []) if config else []
+
+    for item in items:
+        # 1. Outlook
+        if item.get("entry_id"):
+            try:
+                res = mark_email_as_read_outlook(item["entry_id"], log_callback=log_callback)
+                if res: success_count += 1
+            except Exception:
+                pass
+        
+        # 2. IMAP
+        elif item.get("server") or item.get("user") or item.get("msg_id"):
+            matched_acc = None
+            for acc in accounts:
+                if acc.get("server") == item.get("server") or acc.get("user") == item.get("user"):
+                    matched_acc = acc
+                    break
+            if not matched_acc and accounts:
+                matched_acc = accounts[0]
+
+            if matched_acc:
+                try:
+                    res = mark_email_as_read_imap(
+                        account=matched_acc,
+                        actual_folder=item.get("actual_folder") or item.get("folder", "INBOX"),
+                        msg_id=item.get("msg_id", ""),
+                        email_id=item.get("email_id"),
+                        log_callback=log_callback
+                    )
+                    if res: success_count += 1
+                except Exception:
+                    pass
+
+    if log_callback:
+        log_callback(f"✅ Đã đánh dấu ĐÃ ĐỌC ({success_count}/{len(items) if items else 1} thư) cho chuỗi: '{thread.get('subject')}'")
+    return True
 
 
 def delete_thread(thread_id):
@@ -246,6 +315,15 @@ def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None
         account_name = last_email.get("account_name", "")
         folder = last_email.get("folder", "")
 
+        old_items = []
+        if existing and existing.get("email_items"):
+            try:
+                import json
+                old_items = json.loads(existing["email_items"])
+            except Exception:
+                old_items = []
+        combined_items = old_items + emails_list
+
         # Lưu/Cập nhật vào SQLite threads.db
         save_or_update_thread(
             thread_key=t_key,
@@ -255,7 +333,8 @@ def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None
             last_updated=last_time,
             account_name=account_name,
             folder=folder,
-            last_sender=last_sender
+            last_sender=last_sender,
+            email_items=combined_items
         )
 
         # Tạo thông báo duy nhất cho toàn bộ Thread
