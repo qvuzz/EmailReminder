@@ -1,6 +1,6 @@
-# 📬 Email Reminder v1.3 (VNPT AI Assistant)
+# 📬 eMail Smart Assistant v1.3 (VNPT AI Assistant)
 
-> **Ứng dụng tự động quét email từ Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi thông minh trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
+> **Ứng dụng trợ lý email thông minh: Tự động quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 

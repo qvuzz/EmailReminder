@@ -4,18 +4,18 @@ Write-Host "====================================================" -ForegroundCol
 
 # 1. Đóng ứng dụng nếu đang chạy ngầm để tránh bị khóa file (Access Denied)
 Write-Host "[1/4] Dong cac tien trinh cu..." -ForegroundColor Gray
-Get-Process -Name "Email_Reminder", "OutlookNotifierApp" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "eMail_Smart_Assistant", "Email_Reminder", "OutlookNotifierApp" -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
 
 # Xóa file .exe cũ trực tiếp để tránh PermissionError
-if (Test-Path "dist\Email_Reminder.exe") {
+if (Test-Path "dist\eMail_Smart_Assistant.exe") {
     try {
-        Remove-Item -Force "dist\Email_Reminder.exe" -ErrorAction Stop
+        Remove-Item -Force "dist\eMail_Smart_Assistant.exe" -ErrorAction Stop
         Write-Host "  Da xoa file .exe cu." -ForegroundColor Gray
     } catch {
         Write-Host "[!] CANH BAO: Khong the xoa file .exe cu. Vui long dong ung dung truoc!" -ForegroundColor Red
         Read-Host "Nhan Enter de thu lai hoac Ctrl+C de thoat"
-        Remove-Item -Force "dist\Email_Reminder.exe" -ErrorAction SilentlyContinue
+        Remove-Item -Force "dist\eMail_Smart_Assistant.exe" -ErrorAction SilentlyContinue
     }
 }
 
@@ -29,9 +29,9 @@ $scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocatio
 $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
 
 & $pyinstaller --noconsole --onefile --clean `
-    --workpath "$env:TEMP\build_email_reminder" `
+    --workpath "$env:TEMP\build_email_smart_assistant" `
     --icon="app_icon.ico" `
-    --name="Email_Reminder" `
+    --name="eMail_Smart_Assistant" `
     --collect-all customtkinter `
     --collect-all llama_cpp `
     --collect-all pystray `
@@ -68,10 +68,13 @@ if ($LASTEXITCODE -eq 0) {
         if (-not (Test-Path "dist\data")) { New-Item -ItemType Directory -Path "dist\data" | Out-Null }
         Copy-Item -Path "data\config.json" -Destination "dist\data\config.json" -Force -ErrorAction SilentlyContinue
     }
+    if (Test-Path "dist\eMail_Smart_Assistant.exe") {
+        Copy-Item -Path "dist\eMail_Smart_Assistant.exe" -Destination "dist\Email_Reminder.exe" -Force -ErrorAction SilentlyContinue
+    }
 
     Write-Host ""
     Write-Host "====================================================" -ForegroundColor Green
-    Write-Host " [SUCCESS] BUILD THANH CONG! File tai: dist\Email_Reminder.exe " -ForegroundColor Green
+    Write-Host " [SUCCESS] BUILD THANH CONG! File tai: dist\eMail_Smart_Assistant.exe " -ForegroundColor Green
     Write-Host " (Da tu dong sao chep models\ va data\ sang dist\)" -ForegroundColor Green
     Write-Host "====================================================" -ForegroundColor Green
 } else {

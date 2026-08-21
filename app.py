@@ -682,10 +682,10 @@ class NotificationPopup(ctk.CTkToplevel):
 
 
 class EmailReminderApp(ctk.CTk):
-    """Giao diện chính EmailReminder phong cách Modern SaaS Dashboard với Menu dọc"""
+    """Giao diện chính eMail Smart Assistant phong cách Modern SaaS Dashboard với Menu dọc"""
     def __init__(self):
         super().__init__()
-        self.title("Email Reminder - VNPT AI Assistant")
+        self.title("eMail Smart Assistant v1.3 - VNPT AI")
         self.geometry("1120x740")
         self.minsize(980, 640)
         self.configure(fg_color=COLOR_BG_LIGHT)
@@ -758,7 +758,7 @@ class EmailReminderApp(ctk.CTk):
 
         lbl_logo = ctk.CTkLabel(
             logo_badge,
-            text="📬 EmailReminder",
+            text="📬 eMail Assistant",
             font=("Segoe UI", 13, "bold"),
             text_color="#FFFFFF"
         )
@@ -2217,8 +2217,8 @@ class EmailReminderApp(ctk.CTk):
 
         def _test_tele():
             try:
-                msg = "🔔 <b>Test thành công!</b> Ứng dụng Email Reminder v1.3 đã kết nối được với Telegram của bạn."
-                msg_plain = "🔔 Test thành công! Ứng dụng Email Reminder v1.3 đã kết nối được với Telegram của bạn."
+                msg = "🔔 <b>Test thành công!</b> Ứng dụng eMail Smart Assistant v1.3 đã kết nối được với Telegram của bạn."
+                msg_plain = "🔔 Test thành công! Ứng dụng eMail Smart Assistant v1.3 đã kết nối được với Telegram của bạn."
                 ok = send_telegram(token, chat_id, msg, msg_plain, log_callback=lambda m: self.after(0, self.log, m))
                 if ok:
                     self.after(0, self.log, "✅ Gửi tin nhắn thử nghiệm thành công! Hãy kiểm tra điện thoại.")
@@ -2603,7 +2603,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
                 pystray.Menu.SEPARATOR,
                 item("❌ Thoát ứng dụng", self.quit_app)
             )
-            self.tray_icon = pystray.Icon("EmailReminder", image, "Email Reminder v1.3", menu)
+            self.tray_icon = pystray.Icon("eMailSmartAssistant", image, "eMail Smart Assistant v1.3", menu)
             self.tray_icon.run_detached()
         except Exception as e:
             print(f"Lỗi khởi tạo Tray Icon: {e}")
@@ -2613,7 +2613,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             self.withdraw()
             if self.tray_icon:
                 try:
-                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "Email Reminder v1.3")
+                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "eMail Smart Assistant v1.3")
                 except Exception:
                     pass
 
