@@ -1527,12 +1527,13 @@ class EmailReminderApp(ctk.CTk):
             btn_toggle.pack(side="left", padx=(2, 0), pady=2)
 
             # Checkbox cha đại diện cho toàn bộ tài khoản
-            all_selected = len(f_names) > 0 and all(_norm(fn) in current_norm for fn in f_names)
+            selected_count = sum(1 for fn in f_names if _norm(fn) in current_norm)
+            all_selected = len(f_names) > 0 and selected_count == len(f_names)
             grp_cb_var = ctk.BooleanVar(value=all_selected)
 
             cb_grp = ctk.CTkCheckBox(
                 grp_header,
-                text=f"🏢 {grp_title} ({len(f_names)})",
+                text=f"🏢 {grp_title} ({selected_count}/{len(f_names)})",
                 variable=grp_cb_var,
                 font=("Segoe UI", 10, "bold"),
                 text_color=COLOR_TEXT_MAIN,
@@ -1545,8 +1546,17 @@ class EmailReminderApp(ctk.CTk):
             body_frame = ctk.CTkFrame(group_card, fg_color="#FFFFFF", corner_radius=6, border_width=1, border_color="#E2E8F0")
             body_frame.pack(fill="x", padx=2, pady=(2, 2))
 
-            grp_vars = []
-            for fname in f_names:
+            # Rearrange: thư mục đã chọn đưa lên đầu tiên
+            def _folder_sort_key(fn):
+                is_sel = 0 if _norm(fn) in current_norm else 1
+                norm = _norm(fn)
+                is_inbox = 0 if norm in ["inbox", "hộp thư đến", "hop thu den"] else 1
+                return (is_sel, is_inbox, fn.lower())
+
+            sorted_fnames = sorted(f_names, key=_folder_sort_key)
+            grp_rows = []
+
+            for fname in sorted_fnames:
                 row = ctk.CTkFrame(body_frame, fg_color="transparent")
                 row.pack(fill="x", padx=6, pady=1)
 
@@ -1556,7 +1566,9 @@ class EmailReminderApp(ctk.CTk):
                 else:
                     cb_var.set(False)
 
-                grp_vars.append((fname, cb_var))
+                norm = _norm(fname)
+                is_inbox = 0 if norm in ["inbox", "hộp thư đến", "hop thu den"] else 1
+                grp_rows.append({"name": fname, "var": cb_var, "frame": row, "inbox_rank": is_inbox})
 
                 cb = ctk.CTkCheckBox(
                     row,
@@ -1573,8 +1585,9 @@ class EmailReminderApp(ctk.CTk):
             self.inline_folder_groups[grp_title] = {
                 "body": body_frame,
                 "btn": btn_toggle,
+                "cb_grp": cb_grp,
                 "grp_cb_var": grp_cb_var,
-                "vars": grp_vars,
+                "rows": grp_rows,
                 "expanded": True
             }
 
@@ -1591,6 +1604,29 @@ class EmailReminderApp(ctk.CTk):
             data["btn"].configure(text="▼")
             data["expanded"] = True
 
+    def _update_group_header_ui(self, grp_title):
+        data = self.inline_folder_groups.get(grp_title)
+        if not data:
+            return
+        selected_count = sum(1 for r in data["rows"] if r["var"].get())
+        total_count = len(data["rows"])
+        all_checked = total_count > 0 and selected_count == total_count
+        data["grp_cb_var"].set(all_checked)
+        data["cb_grp"].configure(text=f"🏢 {grp_title} ({selected_count}/{total_count})")
+
+    def _reorder_group_rows(self, grp_title):
+        data = self.inline_folder_groups.get(grp_title)
+        if not data or "rows" not in data:
+            return
+        def _row_key(r):
+            is_sel = 0 if r["var"].get() else 1
+            return (is_sel, r["inbox_rank"], r["name"].lower())
+
+        sorted_rows = sorted(data["rows"], key=_row_key)
+        for r in sorted_rows:
+            r["frame"].pack_forget()
+            r["frame"].pack(fill="x", padx=6, pady=1)
+
     def on_group_checkbox_toggled(self, grp_title, grp_cb_var):
         state = grp_cb_var.get()
         self.set_inline_folder_group_state(grp_title, state)
@@ -1600,18 +1636,20 @@ class EmailReminderApp(ctk.CTk):
         if not data:
             return
         current_folders = self.config.get("folders", [])
-        for fname, cb_var in data["vars"]:
-            cb_var.set(state)
+        for r in data["rows"]:
+            fname = r["name"]
+            r["var"].set(state)
             if state:
                 if fname not in current_folders:
                     current_folders.append(fname)
             else:
                 current_norm = _norm(fname)
                 current_folders = [f for f in current_folders if _norm(f) != current_norm and f != fname]
-        data["grp_cb_var"].set(state)
         self.config["folders"] = current_folders
         self.save_config_silent()
         self.refresh_dashboard_rules_stats()
+        self._update_group_header_ui(grp_title)
+        self._reorder_group_rows(grp_title)
 
     def on_folder_checkbox_toggled(self, fname, cb_var, grp_title=None):
         current_folders = self.config.get("folders", [])
@@ -1626,9 +1664,8 @@ class EmailReminderApp(ctk.CTk):
         self.refresh_dashboard_rules_stats()
 
         if grp_title and grp_title in self.inline_folder_groups:
-            data = self.inline_folder_groups[grp_title]
-            all_checked = len(data["vars"]) > 0 and all(var.get() for _, var in data["vars"])
-            data["grp_cb_var"].set(all_checked)
+            self._update_group_header_ui(grp_title)
+            self._reorder_group_rows(grp_title)
 
     def select_all_folders_inline(self):
         grouped = self.config.get("scanned_folders_tree", {})
