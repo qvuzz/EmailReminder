@@ -277,12 +277,26 @@ def open_email_item(email_data, log_callback=None):
     return True
 
 
+def parse_email_time_helper(email):
+    """Chuyển đổi chuỗi thời gian email thành datetime để sắp xếp chuẩn xác"""
+    t_str = email.get("time", "") if isinstance(email, dict) else ""
+    if not t_str:
+        return datetime.min
+    for fmt in ("%H:%M %d/%m/%Y", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%H:%M:%S %d/%m/%Y"):
+        try:
+            return datetime.strptime(t_str, fmt)
+        except Exception:
+            pass
+    return datetime.min
+
+
 class NotificationPopup(ctk.CTkToplevel):
     """Cửa sổ thông báo nổi ở góc phải màn hình gần System Tray (Desktop Floating Card Notification)"""
     def __init__(self, parent, email_list, on_open_app=None):
         super().__init__(parent)
         self.parent = parent
-        self.emails = list(email_list) if email_list else []
+        # Hiển thị vòng từ cũ sang mới theo thời gian
+        self.emails = sorted(email_list, key=parse_email_time_helper) if email_list else []
         self.current_idx = 0
         self.on_open_app = on_open_app
         
@@ -503,7 +517,8 @@ class NotificationPopup(ctk.CTkToplevel):
     def update_emails(self, new_emails):
         if not new_emails:
             return
-        self.emails = list(new_emails)
+        # Hiển thị vòng từ cũ sang mới theo thời gian
+        self.emails = sorted(new_emails, key=parse_email_time_helper) if new_emails else []
         self.current_idx = 0
         self.countdown = 10
         self.is_paused = False
@@ -704,6 +719,7 @@ class EmailReminderApp(ctk.CTk):
         self.stop_event = threading.Event()
         self.notification_popup = None
         self.latest_notifications = []
+        self.email_sort_order = "newest"  # "newest" (Mới -> Cũ) hoặc "oldest" (Cũ -> Mới)
         self._reopen_popup_timer = None
 
         # Thống kê hoạt động phiên hiện tại
@@ -1348,6 +1364,22 @@ class EmailReminderApp(ctk.CTk):
         self.entry_email_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_email_search.bind("<KeyRelease>", lambda e: self.filter_emails_history())
 
+        # Nút đổi chiều sắp xếp thời gian (Mới nhất / Cũ nhất)
+        self.btn_email_sort = ctk.CTkButton(
+            inner,
+            text="⇅ Mới nhất",
+            width=110,
+            height=32,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color=COLOR_PRIMARY_BLUE,
+            text_color=COLOR_PRIMARY_BLUE,
+            hover_color="#F0F7FF",
+            font=("Segoe UI", 11, "bold"),
+            command=self.toggle_email_sort_order
+        )
+        self.btn_email_sort.pack(side="right", padx=(0, 8))
+
         btn_clear_hist = ctk.CTkButton(
             inner,
             text="🗑️ Xóa danh sách",
@@ -1370,15 +1402,30 @@ class EmailReminderApp(ctk.CTk):
         self.emails_full_scroll.pack(fill="both", expand=True, padx=12, pady=12)
         self.filter_emails_history()
 
+    def toggle_email_sort_order(self):
+        if self.email_sort_order == "newest":
+            self.email_sort_order = "oldest"
+            if hasattr(self, "btn_email_sort"):
+                self.btn_email_sort.configure(text="⇅ Cũ nhất")
+        else:
+            self.email_sort_order = "newest"
+            if hasattr(self, "btn_email_sort"):
+                self.btn_email_sort.configure(text="⇅ Mới nhất")
+        self.filter_emails_history()
+
     def filter_emails_history(self):
         for child in self.emails_full_scroll.winfo_children():
             child.destroy()
 
         kw = self.entry_email_search.get().strip().lower() if hasattr(self, 'entry_email_search') else ""
-        emails = self.latest_notifications
+        emails = list(self.latest_notifications)
 
         if kw:
             emails = [e for e in emails if kw in e.get("subject", "").lower() or kw in e.get("sender", "").lower() or kw in e.get("summary", "").lower()]
+
+        # Sắp xếp theo thời gian dựa trên trạng thái nút mũi tên 2 chiều
+        is_reverse = (self.email_sort_order == "newest")
+        emails = sorted(emails, key=parse_email_time_helper, reverse=is_reverse)
 
         if not emails:
             empty = ctk.CTkFrame(self.emails_full_scroll, fg_color="#F8FAFC", corner_radius=8)
