@@ -1,6 +1,6 @@
-# 📬 eMail Smart Assistant v1.3 (VNPT AI Assistant)
+# 📬 eMail Assistant v1.3 (VNPT AI Assistant)
 
-> **Ứng dụng trợ lý email thông minh: Tự động quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
+> **Ứng dụng trợ lý email tự động: Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 

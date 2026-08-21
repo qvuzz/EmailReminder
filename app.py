@@ -682,10 +682,10 @@ class NotificationPopup(ctk.CTkToplevel):
 
 
 class EmailReminderApp(ctk.CTk):
-    """Giao diện chính eMail Smart Assistant phong cách Modern SaaS Dashboard với Menu dọc"""
+    """Giao diện chính eMail Assistant phong cách Modern SaaS Dashboard với Menu dọc"""
     def __init__(self):
         super().__init__()
-        self.title("eMail Smart Assistant v1.3 - VNPT AI")
+        self.title("eMail Assistant v1.3 - VNPT AI")
         self.geometry("1120x740")
         self.minsize(980, 640)
         self.configure(fg_color=COLOR_BG_LIGHT)
