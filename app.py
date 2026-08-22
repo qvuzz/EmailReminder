@@ -313,7 +313,11 @@ class NotificationPopup(ctk.CTkToplevel):
         
         self.popup_w = 460
         self.popup_h = 285
-        self._position_bottom_right()
+        self._position_smart()
+
+        # Kéo popup bằng chuột (drag support)
+        self._drag_start_x = 0
+        self._drag_start_y = 0
 
         self.card = ctk.CTkFrame(
             self, 
@@ -348,6 +352,20 @@ class NotificationPopup(ctk.CTkToplevel):
             command=self.close_popup
         )
         btn_close.pack(side="right", padx=(2, 6), pady=4)
+
+        # Cho phép kéo popup bằng cách giữ chuột vào header
+        header.bind("<ButtonPress-1>", self._on_drag_start)
+        header.bind("<B1-Motion>", self._on_drag_motion)
+        lbl_logo.bind("<ButtonPress-1>", self._on_drag_start)
+        lbl_logo.bind("<B1-Motion>", self._on_drag_motion)
+        self.lbl_timer = ctk.CTkLabel(
+            header,
+            text=f"⏱️ {self.countdown}s",
+            font=("Segoe UI", 10),
+            text_color="#B8DCF5"
+        )
+        self.lbl_timer.bind("<ButtonPress-1>", self._on_drag_start)
+        self.lbl_timer.bind("<B1-Motion>", self._on_drag_motion)
 
         self.btn_pin = ctk.CTkButton(
             header, 
@@ -547,6 +565,7 @@ class NotificationPopup(ctk.CTkToplevel):
         self.is_paused = False
         if hasattr(self.parent, "cancel_reopen_popup"):
             self.parent.cancel_reopen_popup()
+        self._position_smart()
         self.render_email()
         self.deiconify()
         self.lift()
@@ -720,13 +739,50 @@ class NotificationPopup(ctk.CTkToplevel):
 
         self._timer_id = self.after(1000, self._tick)
 
+    def _position_smart(self):
+        """Dùng vị trí đã lưu từ lần kéo trước (nếu có), nếu không thì xuống góc phải mặc định"""
+        saved = getattr(self.parent, '_popup_last_pos', None)
+        if saved:
+            sx, sy = saved
+            try:
+                sw = self.winfo_screenwidth()
+                sh = self.winfo_screenheight()
+                sx = max(0, min(sx, sw - self.popup_w))
+                sy = max(0, min(sy, sh - self.popup_h))
+                self.geometry(f"{self.popup_w}x{self.popup_h}+{sx}+{sy}")
+                return
+            except Exception:
+                pass
+        self._position_bottom_right()
+
     def _position_bottom_right(self):
+        """Vị trí mặc định: góc dưới bên phải cạnh system tray"""
         try:
             screen_w = self.winfo_screenwidth()
             screen_h = self.winfo_screenheight()
             x = screen_w - self.popup_w - 16
             y = screen_h - self.popup_h - 55
             self.geometry(f"{self.popup_w}x{self.popup_h}+{max(0, x)}+{max(0, y)}")
+        except Exception:
+            pass
+
+    def _on_drag_start(self, event):
+        """Ghi lại vị trí chuột khi bắt đầu kéo (tương đối với góc popup)"""
+        self._drag_start_x = event.x_root - self.winfo_x()
+        self._drag_start_y = event.y_root - self.winfo_y()
+
+    def _on_drag_motion(self, event):
+        """Di chuyển popup theo chuột và lưu vị trí mới để dùng lại sau"""
+        try:
+            new_x = event.x_root - self._drag_start_x
+            new_y = event.y_root - self._drag_start_y
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            new_x = max(0, min(new_x, screen_w - self.popup_w))
+            new_y = max(0, min(new_y, screen_h - self.popup_h))
+            self.geometry(f"+{new_x}+{new_y}")
+            if hasattr(self, 'parent') and self.parent:
+                self.parent._popup_last_pos = (new_x, new_y)
         except Exception:
             pass
 
