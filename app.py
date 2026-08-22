@@ -767,7 +767,7 @@ class EmailReminderApp(ctk.CTk):
     """Giao diện chính eMail Assistant phong cách Modern SaaS Dashboard với Menu dọc"""
     def __init__(self):
         super().__init__()
-        self.title("eMail Assistant v1.4 - VNPT AI")
+        self.title("eMail Assistant v1.6 - VNPT AI")
         self.geometry("1120x740")
         self.minsize(980, 640)
         self.configure(fg_color=COLOR_BG_LIGHT)
@@ -2051,22 +2051,6 @@ class EmailReminderApp(ctk.CTk):
             entry.bind("<Return>", lambda event: self.add_filter_item(config_key, entry))
 
             if config_key == "senders":
-                btn_contacts = ctk.CTkButton(
-                    input_frame,
-                    text=" Gợi ý",
-                    image=get_icon("sparkles", 13, "#475569"),
-                    compound="left",
-                    width=68,
-                    fg_color="#F1F5F9",
-                    border_width=1,
-                    border_color="#CBD5E1",
-                    text_color="#475569",
-                    hover_color="#E2E8F0",
-                    font=("Segoe UI", 10, "bold"),
-                    command=lambda: self._toggle_all_contacts_suggestions(entry)
-                )
-                btn_contacts.pack(side="right", padx=(0, 4))
-
                 suggest_frame = ctk.CTkFrame(top_section, fg_color="#FFFFFF", corner_radius=6, border_width=1, border_color=COLOR_PRIMARY_BLUE)
                 self.sender_suggest_box = suggest_frame
                 self.sender_suggest_entry = entry
