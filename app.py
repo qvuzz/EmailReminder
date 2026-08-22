@@ -890,7 +890,7 @@ class EmailReminderApp(ctk.CTk):
 
         lbl_sidebar_ver = ctk.CTkLabel(
             sidebar_footer,
-            text="Phiên bản v1.4\n © quangvu@vnpt - 2026",
+            text="Phiên bản v1.5\n © quangvu@vnpt - 2026",
             font=("Segoe UI", 9),
             text_color="#64748B"
         )

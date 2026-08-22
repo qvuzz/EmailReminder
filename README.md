@@ -1,17 +1,32 @@
-# 📬 eMail Assistant v1.4 (VNPT AI Assistant)
+# 📬 eMail Assistant v1.5 (VNPT AI Assistant)
 
-> **Ứng dụng trợ lý email tự động: Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), tóm tắt nội dung bằng AI (Offline / Online), hiển thị thông báo nổi trên Desktop và tương tác phản hồi 2 chiều qua Telegram.**
+> **Ứng dụng trợ lý email tự động thông minh: Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Tự động gợi ý & Phím tắt Tab cho Senders, Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), Tóm tắt nội dung bằng AI (Offline / Online), Hiển thị thông báo nổi trên Desktop và Tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 
-## 🌟 Tính năng nổi bật trong phiên bản v1.4
+## 🌟 Tính năng mới nổi bật trong phiên bản v1.5
 
+- 👥 **Gợi Ý Người Gửi Thông Minh (Contacts & Senders Autocomplete) + Phím Tắt `Tab`:**
+  - **Tự động gom liên hệ:** Trích xuất tức thời danh bạ và người gửi gần đây từ Outlook, CSDL SQLite Threads và Cache tóm tắt với bộ nhớ đệm tốc độ cao (`data/contacts_cache.json`).
+  - **Tìm kiếm tức thì:** Tìm kiếm linh hoạt theo Tên, Email, Username tiếng Việt Unicode NFC không phân biệt hoa thường.
+  - **Phím tắt `Tab` tiện lợi:** Chỉ cần gõ vài ký tự và nhấn phím `Tab`, ứng dụng sẽ tự động chọn và điền ngay email phù hợp vào Rule.
+  - **Hiển thị tinh gọn:** Tự động chuẩn hóa về địa chỉ email gọn gàng (vd: `nanhduc@vnpt.vn`), không bị dài dòng.
+- ⚡ **Hệ Thống Rule 3 Cột Độc Lập Hoàn Toàn (Independent Rules Architecture):**
+  - **Cơ chế OR linh hoạt:** Hoạt động độc lập giữa 3 cột **Folders**, **Senders**, **Keywords**.
+  - **Tự động quét toàn bộ hòm thư:** Khi cột Folders để trống, ứng dụng sẽ tự động duyệt xuyên suốt qua **tất cả các thư mục mail & thư mục con** để tìm kiếm chính xác email từ `👤 Senders` hoặc chứa `🔑 Keywords`.
+  - **Tìm kiếm nhanh thư mục (Fast Folders Search):** Ô tìm kiếm lọc tức thì cây thư mục, tự động làm sạch ô tìm kiếm sau khi tick chọn thư mục.
+- 🗑️ **Đồng Bộ Xóa Trực Tiếp Vào Thùng Rác (Direct Trash Sync):**
+  - Khi bấm nút `🗑️ Xóa` trên từng Email hoặc Thread, ứng dụng sẽ gửi lệnh chuyển trực tiếp email đó vào thư mục **Thùng rác (Deleted Items / Trash)** trên máy chủ Outlook và Webmail IMAP.
+  - Hỗ trợ mở trực tiếp email mới nhất của chuỗi Thread bằng 1 click.
+- 🎨 **Chuẩn Hóa Giao Diện & Typography Hiện Đại:**
+  - **Đồng bộ Typography:** Tiêu đề và nội dung tóm tắt trang **Emails** đồng bộ chuẩn 100% font chữ với trang **Threads** (`Segoe UI 12 Bold` cho tiêu đề, `Segoe UI 11` với hộp thoại co giãn tự động theo độ dài tóm tắt).
+  - **Nút xóa `[✕]` vuông vắn tinh tế:** Kích thước cố định `22x22px` viền đỏ mảnh (`border_width=1`), nền trong suốt, không bao giờ bị text dài đè biến dạng.
+  - **Phong cách Outline Transparent:** Đồng bộ các nút thao tác chính (*Lưu cấu hình*, *Xem thông báo*, *Bắt đầu/Dừng theo dõi*, *Làm mới*, *Sắp xếp*) sang phong cách viền mảnh thanh lịch chuẩn nhận diện VNPT.
 - 🧵 **Quản Lý & Tóm Tắt Chuỗi Hội Thoại Email (Email Threads - SQLite Độc Lập):**
   - **Cơ sở dữ liệu độc lập (`data/threads.db`):** Sử dụng SQLite chuyên biệt cho luồng Thread, hoàn toàn không ảnh hưởng đến các luồng xử lý email cũ.
   - **Thuật toán Chuẩn hóa Tiêu đề (Subject Normalization):** Tự động bóc tách các tiền tố rác (`Re:`, `Fwd:`, `Tr:`,...) và thẻ tag vuông doanh nghiệp (`[NOC]`, `[Khẩn]`, `[VNPT]`,...) để gom nhóm chính xác các email phản hồi vào cùng một Thread.
   - **Tóm tắt Cuốn chiếu Tự động 100% (Rolling AI Summarization):** Tự động tổng hợp `[Bản tóm tắt cũ]` + `[Email phản hồi mới]` để đưa ra báo cáo diễn biến sự cố, trạng thái và action items mới nhất.
   - **Định tuyến thông báo thông minh:** Email thuộc chuỗi chỉ bắn duy nhất 1 thông báo tổng hợp của toàn bộ Thread (kèm số lượng thư và tóm tắt cuốn chiếu mới nhất) thay vì bắn lẻ tẻ từng email con.
-  - **Giao diện Thread Mails chuyên nghiệp:** Tab riêng trên Sidebar với các Card trực quan, xem tóm tắt tức thời, copy tóm tắt và quản lý chuỗi.
 - 📊 **Giao diện Modern SaaS Dashboard chuẩn nhận diện VNPT:**
   - Sidebar Menu dọc (Dark Slate Theme) kết hợp Top Navigation Bar trắng thanh lịch.
   - 6 phân hệ chuyên biệt: **Dashboard (Tổng quan)**, **Emails (Lịch sử & Chi tiết)**, **Threads (Chuỗi hội thoại)**, **Rules (Bộ lọc)**, **Settings (Cài đặt)**, **Help (Hướng dẫn)**.
