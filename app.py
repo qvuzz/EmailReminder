@@ -1234,11 +1234,13 @@ class EmailReminderApp(ctk.CTk):
         ctk.CTkLabel(card, text=f"👤 {sender}", font=("Segoe UI", 10, "bold"), text_color=COLOR_TEXT_MAIN, anchor="w").pack(fill="x", padx=10, pady=(2, 0))
 
         subj = email.get("subject", "(Không tiêu đề)")
-        ctk.CTkLabel(card, text=f"✉️ {subj}", font=("Segoe UI", 11, "bold"), text_color=COLOR_PRIMARY_BLUE, anchor="w").pack(fill="x", padx=10, pady=(2, 4))
+        ctk.CTkLabel(card, text=f"✉️ {subj}", font=("Segoe UI", 12, "bold"), text_color=COLOR_PRIMARY_BLUE, anchor="w").pack(fill="x", padx=10, pady=(2, 4))
 
         summary = email.get("summary", "")
         if summary:
-            txt = ctk.CTkTextbox(card, height=55, font=("Segoe UI", 10), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
+            num_lines = len(summary.split("\n"))
+            box_height = max(75, min(240, num_lines * 20 + 35))
+            txt = ctk.CTkTextbox(card, height=box_height, font=("Segoe UI", 11), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=6)
             txt.pack(fill="x", padx=10, pady=(0, 6))
             txt.insert("1.0", summary)
             txt.configure(state="disabled")
