@@ -1,20 +1,25 @@
 # 📬 eMail Assistant v1.6 (VNPT AI Assistant)
 
-> **Ứng dụng trợ lý email tự động thông minh: Giao diện Modern SaaS với Hệ thống Icon Vector High-DPI chuẩn Retina/4K, Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Tự động gợi ý & Phím tắt Tab cho Senders, Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), Tóm tắt nội dung bằng AI (Offline / Online), Hiển thị thông báo nổi trên Desktop và Tương tác phản hồi 2 chiều qua Telegram.**
+> **Ứng dụng trợ lý email tự động thông minh: Giao diện Modern SaaS với Hệ thống Icon Vector High-DPI chuẩn Retina/4K, Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Tự động loại bỏ hòm thư Archives, Tự động gợi ý & Phím tắt Tab cho Senders, Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), Tóm tắt nội dung bằng AI (Offline / Online), Hiển thị thông báo nổi trên Desktop và Tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 
 ## 🌟 Tính năng mới nổi bật trong phiên bản v1.6
 
 - 💎 **Hệ Thống Icon Vector High-DPI Siêu Sắc Nét (Modern Lucide Vector Icons):**
-  - **Tự động sinh vector khử răng cưa (Supersampling 4x Anti-aliasing):** Toàn bộ các icon trên ứng dụng (Kính lúp Tìm kiếm, Làm mới xoay tròn, Sắp xếp 2 chiều, Mở thư viền mảnh, Đã đọc tích tròn, Copy 2 lớp giấy, Thùng rác, Nút Play/Stop, Mắt xem thông báo, Bánh răng cài đặt...) được render trực tiếp bằng vector độ phân giải cao, hiển thị siêu nét trên cả màn hình Full HD, 2K và 4K.
+  - **Tự động sinh vector khử răng cưa (Supersampling 4x Anti-aliasing):** Toàn bộ các icon trên ứng dụng (Kính lúp Tìm kiếm, Làm mới xoay tròn 2 cung đối xứng, Sắp xếp Lucide 3 vạch tỷ lệ vàng, Mở thư viền mảnh, Đã đọc tích tròn, Copy 2 lớp giấy, Thùng rác, Nút Play/Stop, Mắt xem thông báo, Bánh răng cài đặt...) được render trực tiếp bằng vector độ phân giải cao, hiển thị siêu nét trên cả màn hình Full HD, 2K và 4K.
+  - **Đổi trạng thái icon sắp xếp thông minh:** Tự động chuyển đổi icon giữa `sort_desc` (Mới nhất - mũi tên xuống) và `sort_asc` (Cũ nhất - mũi tên lên).
   - **Đồng bộ màu sắc thương hiệu VNPT:** Icon chuyển màu thông minh theo trạng thái nút bấm (Xanh `#0066CC`, Xám bạc `#94A3B8`, Xanh lá `#10B981`, Đỏ `#EF4444`, Trắng tinh `#FFFFFF`).
   - **Menu Sidebar & Action Buttons Đẳng Cấp:** Loại bỏ hoàn toàn các emoji thô sơ, thay thế bằng bộ icon thanh lịch chuẩn thiết kế ứng dụng Windows 11 / macOS hiện đại.
-- 👥 **Gợi Ý Người Gửi Thông Minh (Contacts & Senders Autocomplete) + Phím Tắt `Tab`:**
-  - **Tự động gom liên hệ:** Trích xuất tức thời danh bạ và người gửi gần đây từ Outlook, CSDL SQLite Threads và Cache tóm tắt với bộ nhớ đệm tốc độ cao (`data/contacts_cache.json`).
-  - **Tìm kiếm tức thì:** Tìm kiếm linh hoạt theo Tên, Email, Username tiếng Việt Unicode NFC không phân biệt hoa thường.
-  - **Phím tắt `Tab` tiện lợi:** Chỉ cần gõ vài ký tự và nhấn phím `Tab`, ứng dụng sẽ tự động chọn và điền ngay email phù hợp vào Rule.
-  - **Hiển thị tinh gọn:** Tự động chuẩn hóa về địa chỉ email gọn gàng (vd: `nanhduc@vnpt.vn`), không bị dài dòng.
+- 🚫 **Tự Động Bỏ Qua Kho & Thư Mục Lưu Trữ (Smart Archive Exclusion):**
+  - **Loại bỏ Archives khỏi cây thư mục:** Quét thư mục sẽ tự động lọc bỏ các kho lưu trữ cũ (như `Microsoft Outlook (Archives)`), chỉ hiển thị các hòm thư đang hoạt động thực tế.
+  - **Không quét Archive khi tự động duyệt hòm thư:** Khi cột Folders để trống, ứng dụng tự động bỏ qua toàn bộ các thư mục lưu trữ (`archive`, `archives`, `lưu trữ`, `online archive`...) giúp tối ưu tốc độ và tránh quét phải email cũ.
+- 🛡️ **Hộp Thoại Xác Nhận & Trạng Thái "Đang xóa..." Tức Thì:**
+  - **Hộp thoại xác nhận an toàn (Yes/No Dialog):** Khi bấm Xóa Email hoặc Xóa Thread, hệ thống luôn hỏi xác nhận kèm tiêu đề và số lượng thư rõ ràng.
+  - **Phản hồi giao diện tức thì:** Nút bấm lập tức chuyển sang `⏳ Đang xóa...` và thẻ biến mất mượt mà ngay sau khi tiến trình ngầm hoàn tất dọn dẹp vào Thùng rác trên máy chủ.
+- 👥 **Gợi Ý Người Gửi Tinh Gọn (Senders Autocomplete) + Phím Tắt `Tab`:**
+  - **Giao diện nhập liệu tối giản:** Bỏ nút thừa, tự động bung menu gợi ý danh bạ ngay dưới ô nhập khi gõ hoặc click chuột.
+  - **Phím tắt `Tab` tiện lợi:** Tự động chọn và điền ngay email phù hợp vào Rule chỉ với 1 phím bấm.
 - ⚡ **Hệ Thống Rule 3 Cột Độc Lập Hoàn Toàn (Independent Rules Architecture):**
   - **Cơ chế OR linh hoạt:** Hoạt động độc lập giữa 3 cột **Folders**, **Senders**, **Keywords**.
   - **Tự động quét toàn bộ hòm thư:** Khi cột Folders để trống, ứng dụng sẽ tự động duyệt xuyên suốt qua **tất cả các thư mục mail & thư mục con** để tìm kiếm chính xác email từ `👤 Senders` hoặc chứa `🔑 Keywords`.
