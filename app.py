@@ -1869,7 +1869,7 @@ class EmailReminderApp(ctk.CTk):
             self.btn_scan_folders = ctk.CTkButton(
                 top_bar,
                 text="🔍 Scan thư mục",
-                height=32,
+                height=30,
                 fg_color="#FFFFFF",
                 border_width=1,
                 border_color=COLOR_PRIMARY_BLUE,
@@ -1878,7 +1878,19 @@ class EmailReminderApp(ctk.CTk):
                 font=("Segoe UI", 11, "bold"),
                 command=self.trigger_scan_folders_inline
             )
-            self.btn_scan_folders.pack(fill="x")
+            self.btn_scan_folders.pack(fill="x", pady=(0, 6))
+
+            self.entry_folder_search = ctk.CTkEntry(
+                top_bar,
+                placeholder_text="🔍 Tìm nhanh thư mục...",
+                height=28,
+                fg_color="#FFFFFF",
+                border_color=COLOR_BORDER,
+                text_color=COLOR_TEXT_MAIN,
+                font=("Segoe UI", 10)
+            )
+            self.entry_folder_search.pack(fill="x")
+            self.entry_folder_search.bind("<KeyRelease>", lambda event: self.filter_folders_tree_inline())
 
             scroll_frame = ctk.CTkScrollableFrame(frame, fg_color="#F8FAFC", corner_radius=8)
             scroll_frame.pack(fill="both", expand=True, padx=12, pady=6)
@@ -2077,6 +2089,7 @@ class EmailReminderApp(ctk.CTk):
                 cb.pack(side="left", pady=3)
 
             self.inline_folder_groups[grp_title] = {
+                "card": group_card,
                 "body": body_frame,
                 "btn": btn_toggle,
                 "cb_grp": cb_grp,
@@ -2086,6 +2099,35 @@ class EmailReminderApp(ctk.CTk):
             }
 
         self.bind_smooth_scroll(scroll_frame)
+        self.filter_folders_tree_inline()
+
+    def filter_folders_tree_inline(self):
+        """Lọc nhanh danh sách thư mục hiển thị theo từ khóa tìm kiếm"""
+        if not hasattr(self, 'inline_folder_groups') or not self.inline_folder_groups:
+            return
+        kw = self.entry_folder_search.get().strip().lower() if hasattr(self, 'entry_folder_search') else ""
+
+        for grp_title, data in self.inline_folder_groups.items():
+            matched_count = 0
+            for r in data["rows"]:
+                fname_lower = r["name"].lower()
+                fname_norm = _norm(r["name"])
+                if not kw or (kw in fname_lower) or (kw in fname_norm):
+                    r["frame"].pack(fill="x", padx=6, pady=1)
+                    matched_count += 1
+                else:
+                    r["frame"].pack_forget()
+
+            group_card = data.get("card")
+            if group_card and group_card.winfo_exists():
+                if kw and matched_count == 0:
+                    group_card.pack_forget()
+                else:
+                    group_card.pack(fill="x", pady=3, padx=2)
+                    if kw and not data["expanded"]:
+                        data["body"].pack(fill="x", padx=2, pady=(2, 2))
+                        data["btn"].configure(text="▼")
+                        data["expanded"] = True
 
     def toggle_inline_folder_group(self, grp_title):
         data = self.inline_folder_groups.get(grp_title)
