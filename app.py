@@ -865,7 +865,8 @@ class EmailReminderApp(ctk.CTk):
             ("threads",   "  Threads",   "threads"),
             ("rules",     "  Rules",     "folder"),
             ("settings",  "  Settings",  "settings"),
-            ("help",      "  Help",      "help")
+            ("help",      "  Help",      "help"),
+            ("about",     "  About",     "info")
         ]
 
         self.nav_icon_names = {pid: iname for pid, _, iname in nav_items}
@@ -900,41 +901,45 @@ class EmailReminderApp(ctk.CTk):
             font=("Segoe UI", 11, "bold"),
             text_color="#94A3B8"
         )
-        self.lbl_sidebar_status_dot.pack(anchor="w", padx=12, pady=(8, 2))
+        self.lbl_sidebar_status_dot.pack(anchor="w", padx=12, pady=(10, 2))
 
-        lbl_sidebar_ver = ctk.CTkLabel(
+        self.lbl_sidebar_info = ctk.CTkLabel(
             sidebar_footer,
-            text="Phiên bản v1.6\n © quangvu@vnpt - 2026",
-            font=("Segoe UI", 9),
+            text="VNPT AI • v1.6",
+            font=("Segoe UI", 10),
             text_color="#64748B"
         )
-        lbl_sidebar_ver.pack(anchor="w", padx=12, pady=(0, 8))
+        self.lbl_sidebar_info.pack(anchor="w", padx=12, pady=(0, 10))
 
         # =========================================================================
-        # 2. VÙNG NỘI DUNG BÊN PHẢI (Topbar + Pages Container)
+        # 2. VÙNG NỘI DUNG CHÍNH BÊN PHẢI (Top Navigation Bar + Pages)
         # =========================================================================
         self.right_container = ctk.CTkFrame(self, fg_color=COLOR_BG_LIGHT, corner_radius=0)
-        self.right_container.pack(side="right", fill="both", expand=True)
+        self.right_container.pack(side="left", fill="both", expand=True)
 
-        # 2.1 Top Navigation Bar (Trắng thanh lịch)
-        self.topbar = ctk.CTkFrame(self.right_container, fg_color="#FFFFFF", height=62, corner_radius=0, border_width=1, border_color=COLOR_BORDER)
-        self.topbar.pack(side="top", fill="x")
-        self.topbar.pack_propagate(False)
+        # 2.1 Top Navigation Bar (Nền Trắng Thanh Lịch)
+        self.topbar_frame = ctk.CTkFrame(self.right_container, fg_color="#FFFFFF", height=58, corner_radius=0)
+        self.topbar_frame.pack(side="top", fill="x")
+        self.topbar_frame.pack_propagate(False)
 
-        # Tiêu đề trang hiện tại trên Topbar
+        # Đường viền dưới Topbar
+        topbar_border = ctk.CTkFrame(self.topbar_frame, fg_color=COLOR_BORDER, height=1)
+        topbar_border.pack(side="bottom", fill="x")
+
+        # Tiêu đề trang hiện tại
         self.lbl_topbar_title = ctk.CTkLabel(
-            self.topbar,
+            self.topbar_frame,
             text="Dashboard",
             font=("Segoe UI", 15, "bold"),
             text_color=COLOR_TEXT_MAIN
         )
         self.lbl_topbar_title.pack(side="left", padx=20, pady=14)
 
-        # Cụm Thao tác nhanh trên Topbar (Bắt đầu/Dừng, Xem thông báo, User Profile)
-        topbar_actions = ctk.CTkFrame(self.topbar, fg_color="transparent")
-        topbar_actions.pack(side="right", padx=16, pady=10)
+        # Nút điều khiển nhanh bên phải Topbar
+        topbar_actions = ctk.CTkFrame(self.topbar_frame, fg_color="transparent")
+        topbar_actions.pack(side="right", padx=16, pady=12)
 
-        # Nút Bật/Dừng theo dõi (Dạng Outline sang trọng)
+        # Nút Bắt đầu / Dừng theo dõi (Dạng Outline Transparent)
         self.btn_top_toggle = ctk.CTkButton(
             topbar_actions,
             text=" BẮT ĐẦU THEO DÕI",
@@ -992,6 +997,7 @@ class EmailReminderApp(ctk.CTk):
         self.setup_rules_page()
         self.setup_settings_page()
         self.setup_help_page()
+        self.setup_about_page()
 
     def show_page(self, page_id):
         """Chuyển đổi hiển thị giữa các trang và cập nhật trạng thái menu dọc"""
@@ -1025,7 +1031,8 @@ class EmailReminderApp(ctk.CTk):
             "threads":   "Threads (Quản lý chuỗi hội thoại email)",
             "rules":     "Rules (Bộ lọc Email)",
             "settings":  "Settings (Cài đặt hệ thống)",
-            "help":      "Help & Documentation (Trợ giúp)"
+            "help":      "Help & Documentation (Trợ giúp)",
+            "about":     "About (Giới thiệu ứng dụng & Tính năng)"
         }
         self.lbl_topbar_title.configure(text=title_map.get(page_id, "Dashboard"))
         if page_id == "threads" and hasattr(self, "refresh_threads_list"):
@@ -3204,22 +3211,6 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
 - Nút Mở Mail (✉️): Mở trực tiếp email gốc trong Microsoft Outlook hoặc Webmail.
 - Chuột phải icon khay hệ thống: Chọn '📬 Xem thông báo email mới' để mở lại bất cứ lúc nào."""
         self._create_help_textbox(c4, txt4)
-
-        # Card 5: About App & Release Info
-        c5 = self._create_settings_section(scroll, "ℹ️ 5. Giới Thiệu Ứng Dụng & Bản Quyền (About eMail Assistant)")
-        txt5 = """Ứng dụng: eMail Assistant (VNPT AI Assistant)
-Phiên bản: Version 1.6 (Bản phát hành chính thức 2026)
-Bản quyền & Tác giả: © 2026 quangvu@vnpt - VNPT
-
-Giới thiệu chung:
-eMail Assistant là giải pháp phần mềm trợ lý thông minh được phát triển nhằm tối ưu hóa hiệu suất xử lý thư điện tử cho cán bộ và chuyên viên:
-• Theo dõi đa nguồn: Quét tự động và đồng thời hòm thư Microsoft Outlook (Desktop MAPI) và đa tài khoản Webmail máy chủ (giao thức IMAP bảo mật SSL/TLS).
-• Tóm tắt thông minh bằng AI: Tự động tổng hợp và trích xuất hành động chính (Action Items) từ nội dung email bằng mô hình AI Offline (bảo mật 100% không cần Internet) hoặc AI Cloud thế hệ mới (Gemini, Groq, DeepSeek, OpenAI).
-• Quản lý chuỗi hội thoại (Email Threads): Thuật toán chuẩn hóa tiêu đề và tóm tắt cuốn chiếu tự động toàn bộ diễn biến chuỗi thư phản hồi qua lại trên cơ sở dữ liệu SQLite độc lập.
-• Tương tác 2 chiều Telegram: Nhận thông báo tức thì trên điện thoại và hỗ trợ nút bấm tương tác Đánh dấu đã đọc đồng bộ ngược về máy tính.
-• Giao diện Modern SaaS: Trực quan, chuẩn nhận diện VNPT, tích hợp hệ thống Icon Vector High-DPI sắc nét và cửa sổ thông báo nổi (Floating Card) tiện lợi."""
-        self._create_help_textbox(c5, txt5, height=225)
-
         self.bind_smooth_scroll(scroll)
 
     def _create_help_textbox(self, parent, content, height=135):
@@ -3227,6 +3218,151 @@ eMail Assistant là giải pháp phần mềm trợ lý thông minh được ph�
         tb.pack(fill="x", padx=16, pady=(0, 12))
         tb.insert("1.0", content)
         tb.configure(state="disabled")
+
+    # =========================================================================
+    # TRANG 7: ℹ️ ABOUT (GIỚI THIỆU ỨNG DỤNG & TÍNH NĂNG)
+    # =========================================================================
+    def setup_about_page(self):
+        page = ctk.CTkFrame(self.page_container, fg_color="transparent")
+        self.pages["about"] = page
+
+        scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
+        scroll.pack(fill="both", expand=True)
+
+        # 1. HERO HEADER BANNER (Lớn, Sang Trọng, Nổi Bật)
+        hero = ctk.CTkFrame(scroll, fg_color="#FFFFFF", corner_radius=12, border_width=1, border_color=COLOR_BORDER)
+        hero.pack(fill="x", pady=(0, 14))
+
+        hero_content = ctk.CTkFrame(hero, fg_color="transparent")
+        hero_content.pack(fill="x", padx=24, pady=20)
+
+        # Top tag + Title
+        title_row = ctk.CTkFrame(hero_content, fg_color="transparent")
+        title_row.pack(anchor="w", fill="x")
+
+        ctk.CTkLabel(
+            title_row,
+            text="📬 eMail Assistant",
+            font=("Segoe UI", 22, "bold"),
+            text_color=COLOR_PRIMARY_BLUE
+        ).pack(side="left")
+
+        ver_badge = ctk.CTkFrame(title_row, fg_color="#EFF6FF", corner_radius=6, border_width=1, border_color="#BFDBFE")
+        ver_badge.pack(side="left", padx=(12, 0))
+        ctk.CTkLabel(
+            ver_badge,
+            text="Version 1.6",
+            font=("Segoe UI", 12, "bold"),
+            text_color=COLOR_PRIMARY_BLUE
+        ).pack(padx=10, pady=3)
+
+        ctk.CTkLabel(
+            hero_content,
+            text="Trợ lý Email Thông Minh & Quản Lý Chuỗi Hội Thoại Tự Động bằng Trí Tuệ Nhân Tạo (VNPT AI)",
+            font=("Segoe UI", 13, "bold"),
+            text_color="#475569"
+        ).pack(anchor="w", pady=(6, 10))
+
+        desc_text = "eMail Assistant là giải pháp phần mềm độc lập được thiết kế và tối ưu riêng cho môi trường làm việc VNPT, giúp cán bộ và chuyên viên tự động hóa toàn diện quy trình giám sát hòm thư, phân loại theo bộ lọc, tóm tắt thông minh chuỗi thư bằng AI, phát thông báo nổi Desktop và tương tác phản hồi 2 chiều qua Telegram."
+        ctk.CTkLabel(
+            hero_content,
+            text=desc_text,
+            font=("Segoe UI", 12),
+            text_color=COLOR_TEXT_MAIN,
+            wraplength=760,
+            justify="left"
+        ).pack(anchor="w")
+
+        # 2. CORE FEATURES (CÁC TÍNH NĂNG NỔI BẬT - FONT LỚN, RÕ RÀNG)
+        features = [
+            (
+                "🧵 Quản Lý & Tóm Tắt Chuỗi Hội Thoại (Email Threads)",
+                "• Tự động gom nhóm thông minh: Thuật toán nhận diện và bóc tách các tiền tố rác (Re:, Fwd:, Tr:...) cùng các tag doanh nghiệp ([NOC], [Khẩn], [VNPT]...) để gom các email phản hồi vào cùng một Thread.\n"
+                "• Tóm tắt cuốn chiếu tự động bằng AI (Rolling Summary): Tự động tổng hợp bản tóm tắt cũ với nội dung thư mới để đưa ra bức tranh toàn cảnh và diễn biến sự cố mới nhất của cả chuỗi.\n"
+                "• Cơ sở dữ liệu SQLite độc lập: Lưu trữ bền vững, hỗ trợ mở trực tiếp email mới nhất và nút 'Xóa Thread' dọn dẹp toàn bộ email trong chuỗi vào thùng rác chỉ với 1 click."
+            ),
+            (
+                "🌐 Giám Sát Đa Nguồn & Đa Tài Khoản Song Song",
+                "• Microsoft Outlook (Desktop MAPI): Kết nối trực tiếp với ứng dụng Outlook đang chạy trên máy tính Windows.\n"
+                "• Đa tài khoản Webmail máy chủ (IMAP SSL/TLS): Thêm và quét đồng thời không giới hạn các tài khoản thư điện tử (VNPT Webmail, Gmail, Zimbra...).\n"
+                "• Tự động loại bỏ kho lưu trữ (Archives): Bỏ qua hoàn toàn các kho và thư mục lưu trữ cũ (Archives/Lưu trữ), chỉ tập trung quét chính xác các hòm thư đang hoạt động."
+            ),
+            (
+                "🤖 Động Cơ Trí Tuệ Nhân Tạo AI Thông Minh (Offline & Cloud)",
+                "• AI Offline Cục bộ (Local): Tích hợp mô hình Qwen 2.5 Instruct GGUF chạy trực tiếp trên máy tính. Đảm bảo bảo mật dữ liệu tuyệt đối 100%, không cần kết nối mạng và không phát sinh chi phí.\n"
+                "• Đa dạng AI Cloud thế hệ mới: Hỗ trợ linh hoạt các nhà cung cấp Google Gemini 1.5, Groq (siêu tốc), DeepSeek, OpenAI GPT..."
+            ),
+            (
+                "📱 Thông Báo Nổi Desktop & Tương Tác 2 Chiều Telegram",
+                "• Cửa sổ thông báo nổi Desktop (Floating Card): Thiết kế bo góc hiện đại tại khay hệ thống, tự động trình chiếu lần lượt các email mới mỗi 10 giây kèm nút Mở Mail và Đã đọc.\n"
+                "• Tương tác 2 chiều qua Telegram Bot: Nhận báo cáo tóm tắt tức thời trên điện thoại và hỗ trợ nút bấm tương tác [✓ Đánh dấu đã đọc] đồng bộ ngược tức thì về Outlook / Webmail."
+            ),
+            (
+                "⚡ Bộ Lọc Rules 3 Cột Độc Lập & Gợi Ý Danh Bạ Tức Thì",
+                "• Cơ chế lọc linh hoạt: Hoạt động độc lập giữa 3 cột Thư mục (Folders), Người gửi (Senders), Từ khóa (Keywords) theo toán tử OR thông minh.\n"
+                "• Gợi ý người gửi thông minh (Autocomplete): Tự động gom danh bạ từ Outlook, CSDL Threads và bộ nhớ đệm; hỗ trợ phím tắt Tab giúp điền email chỉ trong 1 giây."
+            ),
+            (
+                "💎 Giao Diện SaaS Hiện Đại & Hệ Thống Icon Vector High-DPI",
+                "• Chuẩn nhận diện thương hiệu VNPT: Bố cục Sidebar Dark Slate phối hợp Topbar và Vùng nội dung White/Light Slate thanh lịch.\n"
+                "• Icon Vector High-DPI (Lucide Vector Geometry): Khử răng cưa bằng công nghệ Supersampling 4x Anti-aliasing, sắc nét hoàn hảo trên màn hình Full HD, 2K và 4K Retina."
+            )
+        ]
+
+        sec_title = ctk.CTkFrame(scroll, fg_color="transparent")
+        sec_title.pack(fill="x", pady=(8, 10))
+        ctk.CTkLabel(
+            sec_title,
+            text="✨ TÍNH NĂNG NỔI BẬT CỦA ỨNG DỤNG",
+            font=("Segoe UI", 14, "bold"),
+            text_color=COLOR_PRIMARY_BLUE
+        ).pack(anchor="w", padx=4)
+
+        for f_title, f_body in features:
+            f_card = ctk.CTkFrame(scroll, fg_color="#FFFFFF", corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+            f_card.pack(fill="x", pady=6)
+
+            card_pad = ctk.CTkFrame(f_card, fg_color="transparent")
+            card_pad.pack(fill="x", padx=20, pady=16)
+
+            ctk.CTkLabel(
+                card_pad,
+                text=f_title,
+                font=("Segoe UI", 13, "bold"),
+                text_color=COLOR_PRIMARY_BLUE
+            ).pack(anchor="w", pady=(0, 8))
+
+            ctk.CTkLabel(
+                card_pad,
+                text=f_body,
+                font=("Segoe UI", 12),
+                text_color=COLOR_TEXT_MAIN,
+                justify="left",
+                wraplength=760
+            ).pack(anchor="w")
+
+        # 3. FOOTER / BẢN QUYỀN
+        footer = ctk.CTkFrame(scroll, fg_color="#F8FAFC", corner_radius=10, border_width=1, border_color=COLOR_BORDER)
+        footer.pack(fill="x", pady=(10, 16))
+
+        foot_content = ctk.CTkFrame(footer, fg_color="transparent")
+        foot_content.pack(fill="x", padx=20, pady=14)
+
+        ctk.CTkLabel(
+            foot_content,
+            text="🏛️ Bản quyền & Phát triển: © 2026 quangvu@vnpt - VNPT",
+            font=("Segoe UI", 12, "bold"),
+            text_color=COLOR_TEXT_MAIN
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            foot_content,
+            text="Ứng dụng được xây dựng phục vụ nhu cầu nội bộ, nâng cao năng suất công việc và hỗ trợ tối đa quy trình xử lý thông tin email.",
+            font=("Segoe UI", 11, "italic"),
+            text_color=COLOR_TEXT_MUTED
+        ).pack(anchor="w", pady=(4, 0))
+
+        self.bind_smooth_scroll(scroll)
 
     # =========================================================================
     # LOGIC CHẠY NGẦM, CẤU HÌNH & SYSTEM TRAY

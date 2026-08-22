@@ -246,6 +246,16 @@ def _draw_icon(name: str, size: int, color_hex: str) -> Image.Image:
         # Ô nhãn bên dưới
         draw.rectangle([int(s * 0.28), int(s * 0.56), int(s * 0.72), s - pad], outline=col, width=w)
 
+    elif name in ("info", "about"):
+        # Vòng tròn chữ i (Information / About)
+        draw.ellipse([pad, pad, s - pad, s - pad], outline=col, width=w)
+        cx = s // 2
+        # Dấu chấm trên
+        dot_r = int(1.8 * scale)
+        draw.ellipse([cx - dot_r, int(s * 0.28) - dot_r, cx + dot_r, int(s * 0.28) + dot_r], fill=col)
+        # Thân chữ i
+        draw.line([(cx, int(s * 0.42)), (cx, int(s * 0.72))], fill=col, width=w)
+
     else:
         # Default circle
         draw.ellipse([pad, pad, s - pad, s - pad], outline=col, width=w)
