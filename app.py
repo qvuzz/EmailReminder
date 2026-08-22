@@ -935,15 +935,17 @@ class EmailReminderApp(ctk.CTk):
         )
         self.btn_top_toggle.pack(side="left", padx=(0, 8))
 
-        # Nút Mở lại thông báo Desktop (Dạng Solid Blue chuẩn VNPT)
+        # Nút Mở lại thông báo Desktop (Dạng Outline Transparent)
         self.btn_top_reopen = ctk.CTkButton(
             topbar_actions,
             text="👁️ Xem thông báo",
             font=("Segoe UI", 11, "bold"),
             height=34,
-            fg_color=COLOR_PRIMARY_BLUE,
-            hover_color=COLOR_HOVER_BLUE,
-            text_color="#FFFFFF",
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color=COLOR_PRIMARY_BLUE,
+            text_color=COLOR_PRIMARY_BLUE,
+            hover_color="#F0F7FF",
             command=self.reopen_latest_notifications
         )
         self.btn_top_reopen.pack(side="left", padx=(0, 12))
@@ -2465,13 +2467,18 @@ class EmailReminderApp(ctk.CTk):
             btn_del = ctk.CTkButton(
                 row_frame, 
                 text="✕", 
-                width=24, 
+                width=22, 
                 height=22, 
-                fg_color=COLOR_RED_BTN, 
-                hover_color=COLOR_RED_HOVER, 
+                corner_radius=4,
+                border_width=1,
+                border_color=COLOR_RED_BTN,
+                fg_color="transparent", 
+                hover_color="#FEF2F2", 
+                text_color=COLOR_RED_BTN,
+                font=("Segoe UI", 10, "bold"),
                 command=lambda v=item_val: self.remove_filter_item(key, v)
             )
-            btn_del.pack(side="right", padx=6, pady=4)
+            btn_del.pack(side="right", padx=6, pady=3)
 
         self.bind_smooth_scroll(scroll_frame)
 
@@ -2693,10 +2700,13 @@ class EmailReminderApp(ctk.CTk):
         btn_save = ctk.CTkButton(
             sec5,
             text="💾 LƯU CẤU HÌNH HỆ THỐNG",
-            font=("Segoe UI", 13, "bold"),
-            height=40,
-            fg_color=COLOR_PRIMARY_BLUE,
-            hover_color=COLOR_HOVER_BLUE,
+            font=("Segoe UI", 12, "bold"),
+            height=38,
+            fg_color="#FFFFFF",
+            border_width=1,
+            border_color=COLOR_PRIMARY_BLUE,
+            text_color=COLOR_PRIMARY_BLUE,
+            hover_color="#F0F7FF",
             command=self.save_config
         )
         btn_save.pack(anchor="w", padx=16, pady=(0, 16))
@@ -2810,13 +2820,15 @@ class EmailReminderApp(ctk.CTk):
             btn_del = ctk.CTkButton(
                 action_row, 
                 text="✕", 
-                width=26, 
-                height=26, 
-                fg_color=COLOR_RED_BTN, 
-                hover_color=COLOR_RED_HOVER, 
-                text_color="#FFFFFF",
+                width=22, 
+                height=22, 
                 corner_radius=4,
-                font=("Segoe UI", 12, "bold"), 
+                border_width=1,
+                border_color=COLOR_RED_BTN,
+                fg_color="transparent", 
+                hover_color="#FEF2F2", 
+                text_color=COLOR_RED_BTN,
+                font=("Segoe UI", 10, "bold"), 
                 command=lambda aid=acc.get("id"), aname=acc_name: self.delete_imap_account(aid, aname)
             )
             btn_del.pack(side="left")
