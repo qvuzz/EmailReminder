@@ -2459,6 +2459,10 @@ class EmailReminderApp(ctk.CTk):
         val = entry_widget.get().strip()
         if not val:
             return
+        if key == "senders" and "<" in val:
+            match = re.search(r'<([^>]+)>', val)
+            if match:
+                val = match.group(1).strip()
         if key not in self.config:
             self.config[key] = []
         if val not in self.config[key]:
@@ -2500,9 +2504,7 @@ class EmailReminderApp(ctk.CTk):
             row_frame = ctk.CTkFrame(scroll_frame, fg_color="#FFFFFF", border_width=1, border_color="#E2E8F0", corner_radius=6)
             row_frame.pack(fill="x", pady=2, padx=2)
 
-            lbl = ctk.CTkLabel(row_frame, text=item_val, anchor="w", text_color=COLOR_TEXT_MAIN, font=("Segoe UI", 11))
-            lbl.pack(side="left", fill="x", expand=True, padx=8, pady=4)
-
+            # Pack nút X trước sang bên phải để cố định kích thước 22x22px vuông vắn 100%, không bị text đè
             btn_del = ctk.CTkButton(
                 row_frame, 
                 text="✕", 
@@ -2518,6 +2520,15 @@ class EmailReminderApp(ctk.CTk):
                 command=lambda v=item_val: self.remove_filter_item(key, v)
             )
             btn_del.pack(side="right", padx=6, pady=3)
+
+            display_val = item_val
+            if key == "senders" and "<" in item_val:
+                match = re.search(r'<([^>]+)>', item_val)
+                if match:
+                    display_val = match.group(1).strip()
+
+            lbl = ctk.CTkLabel(row_frame, text=display_val, anchor="w", text_color=COLOR_TEXT_MAIN, font=("Segoe UI", 11))
+            lbl.pack(side="left", fill="x", expand=True, padx=8, pady=3)
 
         self.bind_smooth_scroll(scroll_frame)
 
