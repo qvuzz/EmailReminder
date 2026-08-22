@@ -19,6 +19,7 @@ from security import encrypt_password, decrypt_password, is_encrypted
 import uuid
 import copy
 import ctypes
+import re
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)

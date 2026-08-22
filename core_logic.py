@@ -11,6 +11,7 @@ import requests
 import html
 import sys
 import unicodedata
+import re
 from datetime import datetime, timedelta
 from offline_ai import summarize_offline
 from ai_engines import summarize_with_ai
