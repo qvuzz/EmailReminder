@@ -20,7 +20,7 @@ def summarize_with_ai(ai_type, api_key, subject, sender, body, log_callback=None
             return _call_gemini(api_key, sys_prompt, user_prompt)
         
         openai_compatible_configs = {
-            "Groq": ("https://api.groq.com/openai/v1/chat/completions", "openai/gpt-oss-120b"),
+            "Groq": ("https://api.groq.com/openai/v1/chat/completions", "llama3-70b-8192"),
             "DeepSeek": ("https://api.deepseek.com/chat/completions", "deepseek-chat"),
             "Grok": ("https://api.x.ai/v1/chat/completions", "grok-4.6"),
             "OpenAI": ("https://api.openai.com/v1/chat/completions", "gpt-4o-mini")
@@ -103,7 +103,7 @@ def summarize_thread_rolling_with_ai(ai_type, api_key, subject, current_summary,
             return _fallback_offline()
 
         openai_compatible_configs = {
-            "Groq": ("https://api.groq.com/openai/v1/chat/completions", "openai/gpt-oss-120b"),
+            "Groq": ("https://api.groq.com/openai/v1/chat/completions", "llama3-70b-8192"),
             "DeepSeek": ("https://api.deepseek.com/chat/completions", "deepseek-chat"),
             "Grok": ("https://api.x.ai/v1/chat/completions", "grok-4.6"),
             "OpenAI": ("https://api.openai.com/v1/chat/completions", "gpt-4o-mini")

@@ -2,7 +2,7 @@ import sqlite3
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -21,8 +21,29 @@ def get_db_connection():
     return conn
 
 
+THREAD_TTL_DAYS = 30  # Chuỗi hội thoại không có email mới trong 30 ngày được coi là đã xử lý xong
+
+
+def cleanup_old_threads(log_callback=None):
+    """Xóa các Thread không có email mới trong THREAD_TTL_DAYS ngày (mặc định 30 ngày)"""
+    try:
+        cutoff = (datetime.now() - timedelta(days=THREAD_TTL_DAYS)).strftime("%Y-%m-%d")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM email_threads WHERE last_updated < ?", (cutoff,))
+            deleted = cursor.rowcount
+            conn.commit()
+        if deleted > 0 and log_callback:
+            log_callback(f"🧹 Đã dọn sạch {deleted} chuỗi hội thoại cũ hơn {THREAD_TTL_DAYS} ngày khỏi cơ sở dữ liệu.")
+        return deleted
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ Lỗi dọn dẹp threads.db: {e}")
+        return 0
+
+
 def init_thread_db():
-    """Khởi tạo cấu trúc bảng email_threads nếu chưa tồn tại"""
+    """Khởi tạo cấu trúc bảng email_threads nếu chưa tồn tại, tự động dọn thread cũ >30 ngày"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -46,6 +67,8 @@ def init_thread_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_thread_key ON email_threads(thread_key)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_updated ON email_threads(last_updated)")
         conn.commit()
+    # Tự động dọn thread quá hạn mỗi khi DB được khởi tạo (thường là lúc app khởi động)
+    cleanup_old_threads()
 
 
 def normalize_thread_subject(raw_subject):

@@ -31,14 +31,29 @@ def _norm(text):
         return ""
     return unicodedata.normalize('NFC', str(text)).lower().strip()
 
+CACHE_TTL_DAYS = 7   # Email >7 ngày không bao giờ nằm trong cửa sổ quét 48h → cache vô dụng
+
 def load_cache():
-    """Tải bộ nhớ đệm tóm tắt từ file JSON"""
+    """Tải bộ nhớ đệm tóm tắt từ file JSON, tự động xóa entry cũ hơn 7 ngày"""
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, dict):
-                    return data
+            if isinstance(data, dict):
+                cutoff = datetime.now() - timedelta(days=CACHE_TTL_DAYS)
+                cleaned = {}
+                for k, v in data.items():
+                    try:
+                        cached_at_str = v.get("cached_at", "")
+                        if cached_at_str:
+                            cached_dt = datetime.strptime(cached_at_str, "%Y-%m-%d %H:%M:%S")
+                            if cached_dt >= cutoff:
+                                cleaned[k] = v
+                        else:
+                            cleaned[k] = v  # Giữ entry cũ không có timestamp để an toàn
+                    except Exception:
+                        cleaned[k] = v
+                return cleaned
         except Exception:
             return {}
     return {}
@@ -50,6 +65,7 @@ def save_cache(cache_dict):
             json.dump(cache_dict, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Lỗi khi lưu cache: {e}")
+
 
 def add_folder_and_all_subfolders(folder, target_dict):
     """Thêm thư mục và toàn bộ thư mục con (subfolders) vào danh sách quét"""
