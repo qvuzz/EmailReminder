@@ -1500,7 +1500,7 @@ class EmailReminderApp(ctk.CTk):
         self.btn_email_sort = ctk.CTkButton(
             inner,
             text="⇅ Mới nhất",
-            width=110,
+            width=105,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1512,10 +1512,10 @@ class EmailReminderApp(ctk.CTk):
         )
         self.btn_email_sort.pack(side="right", padx=(0, 8))
 
-        btn_clear_hist = ctk.CTkButton(
+        btn_refresh = ctk.CTkButton(
             inner,
-            text="🗑️ Xóa danh sách",
-            width=110,
+            text="🔄 Làm mới",
+            width=95,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1523,9 +1523,9 @@ class EmailReminderApp(ctk.CTk):
             text_color="#475569",
             hover_color="#F1F5F9",
             font=("Segoe UI", 11),
-            command=self.clear_emails_history
+            command=self.filter_emails_history
         )
-        btn_clear_hist.pack(side="right")
+        btn_refresh.pack(side="right")
 
         list_container = ctk.CTkFrame(page, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
         list_container.pack(fill="both", expand=True)
