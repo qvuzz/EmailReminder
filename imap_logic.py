@@ -231,28 +231,24 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
 
         # Lọc danh sách thư mục quét từ config
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
-        if not target_folders:
-            log_callback(f"ℹ️ [{acc_name}] Cột Folders trong Rules đang trống (chưa chọn thư mục nào) -> Bỏ qua quét Webmail.")
-            try:
-                mail.logout()
-            except Exception:
-                pass
-            return []
-
         folders_to_scan = []
-        for tf in target_folders:
-            matched = False
-            for decoded_norm, raw_utf7 in decoded_server_folders.items():
-                if tf == decoded_norm or (tf == "inbox" and decoded_norm == "inbox"):
-                    folders_to_scan.append((decoded_name, raw_utf7))
-                    matched = True
-                    break
-            if not matched:
-                if tf == "inbox":
-                    folders_to_scan.append(("Inbox", "INBOX"))
-                else:
-                    encoded_tf = encode_utf7_imap(tf)
-                    folders_to_scan.append((tf, encoded_tf))
+        if not target_folders:
+            log_callback(f"ℹ️ [{acc_name}] Cột Folders đang để trống -> Mặc định quét Hộp thư đến (INBOX).")
+            folders_to_scan.append(("Inbox", "INBOX"))
+        else:
+            for tf in target_folders:
+                matched = False
+                for decoded_norm, raw_utf7 in decoded_server_folders.items():
+                    if tf == decoded_norm or (tf == "inbox" and decoded_norm == "inbox"):
+                        folders_to_scan.append((tf, raw_utf7))
+                        matched = True
+                        break
+                if not matched:
+                    if tf == "inbox":
+                        folders_to_scan.append(("Inbox", "INBOX"))
+                    else:
+                        encoded_tf = encode_utf7_imap(tf)
+                        folders_to_scan.append((tf, encoded_tf))
 
         target_senders = []
         for s in config.get("senders", []):

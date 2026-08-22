@@ -307,21 +307,24 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
         
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         if not target_folders:
-            log_callback("ℹ️ [Outlook] Cột Folders trong Rules đang trống (chưa chọn thư mục nào) -> Bỏ qua quét Outlook.")
-            return []
-
-        for tf in target_folders:
-            if tf in all_folders:
-                f_dict = {}
-                add_folder_and_all_subfolders(all_folders[tf], f_dict)
-                folders_to_scan.update(f_dict)
-                explicit_folder_ids.update(f_dict.keys())
-            else:
-                log_callback(f"⚠️ Không tìm thấy thư mục '{tf}' trong Outlook (có thể tên sai hoặc chưa tạo)")
-        
-        if not folders_to_scan:
-            log_callback("ℹ️ [Outlook] Không tìm thấy thư mục nào khớp trong danh sách đã chọn -> Bỏ qua.")
-            return []
+            try:
+                inbox_f = outlook.GetDefaultFolder(6)
+                if inbox_f:
+                    f_dict = {}
+                    add_folder_and_all_subfolders(inbox_f, f_dict)
+                    folders_to_scan.update(f_dict)
+            except Exception:
+                pass
+            log_callback("ℹ️ [Outlook] Cột Folders đang để trống -> Mặc định quét Hộp thư đến (Inbox).")
+        else:
+            for tf in target_folders:
+                if tf in all_folders:
+                    f_dict = {}
+                    add_folder_and_all_subfolders(all_folders[tf], f_dict)
+                    folders_to_scan.update(f_dict)
+                    explicit_folder_ids.update(f_dict.keys())
+                else:
+                    log_callback(f"⚠️ Không tìm thấy thư mục '{tf}' trong Outlook (có thể tên sai hoặc chưa tạo)")
 
         target_senders = []
         for s in config.get("senders", []):

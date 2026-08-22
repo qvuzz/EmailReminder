@@ -3170,28 +3170,25 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             src_str = " + ".join(active_srcs) if active_srcs else "Chưa chọn nguồn"
             self.after(0, self.log, f"Đang quét hòm thư... ({src_str} | AI: {self.config.get('ai_engine')})")
 
-            if not self.config.get("folders", []):
-                self.after(0, self.log, "ℹ️ Cột Folders trong Rules chưa chọn thư mục nào -> Tạm dừng quét cho tới khi bạn tick chọn thư mục.")
-            else:
-                if self.config.get("enable_outlook", True) and not self.stop_event.is_set():
-                    try:
-                        scan_emails(
-                            self.config, 
-                            lambda msg: self.after(0, self.log, msg),
-                            on_emails_found_callback=self.on_new_emails_found
-                        )
-                    except Exception as out_err:
-                        self.after(0, self.log, f"❌ Lỗi quét Outlook: {out_err}")
+            if self.config.get("enable_outlook", True) and not self.stop_event.is_set():
+                try:
+                    scan_emails(
+                        self.config, 
+                        lambda msg: self.after(0, self.log, msg),
+                        on_emails_found_callback=self.on_new_emails_found
+                    )
+                except Exception as out_err:
+                    self.after(0, self.log, f"❌ Lỗi quét Outlook: {out_err}")
 
-                if self.config.get("enable_imap", False) and not self.stop_event.is_set():
-                    try:
-                        scan_emails_imap(
-                            self.config, 
-                            lambda msg: self.after(0, self.log, msg),
-                            on_emails_found_callback=self.on_new_emails_found
-                        )
-                    except Exception as imap_err:
-                        self.after(0, self.log, f"❌ Lỗi quét Webmail/IMAP: {imap_err}")
+            if self.config.get("enable_imap", False) and not self.stop_event.is_set():
+                try:
+                    scan_emails_imap(
+                        self.config, 
+                        lambda msg: self.after(0, self.log, msg),
+                        on_emails_found_callback=self.on_new_emails_found
+                    )
+                except Exception as imap_err:
+                    self.after(0, self.log, f"❌ Lỗi quét Webmail/IMAP: {imap_err}")
 
             for _ in range(interval_sec):
                 if self.stop_event.is_set(): break
