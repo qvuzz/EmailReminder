@@ -13,16 +13,26 @@ call "%~dp0.venv\Scripts\activate.bat"
 
 "%~dp0.venv\Scripts\pyinstaller.exe" --noconsole --onefile --clean ^
     --icon="app_icon.ico" ^
-    --name="Email_Reminder" ^
+    --name="eMail_Assistant" ^
     --collect-all customtkinter ^
     --collect-all llama_cpp ^
     --collect-all pystray ^
     --hidden-import win32timezone ^
     --hidden-import win32com ^
+    --hidden-import win32com.client ^
     --hidden-import pywintypes ^
     --hidden-import pythoncom ^
     --hidden-import PIL ^
     --hidden-import PIL.Image ^
+    --hidden-import imaplib ^
+    --hidden-import email ^
+    --hidden-import email.header ^
+    --hidden-import email.utils ^
+    --hidden-import security ^
+    --hidden-import ctypes ^
+    --hidden-import thread_logic ^
+    --hidden-import icon_assets ^
+    --hidden-import sqlite3 ^
     --add-data "app_icon.ico;." ^
     --add-data "app_icon.png;." ^
     app.py

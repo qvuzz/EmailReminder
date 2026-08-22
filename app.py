@@ -20,6 +20,7 @@ import uuid
 import copy
 import ctypes
 import re
+from icon_assets import get_icon
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -463,8 +464,10 @@ class NotificationPopup(ctk.CTkToplevel):
 
         self.btn_open_mail = ctk.CTkButton(
             action_box,
-            text="✉️ Mở Mail",
-            width=85,
+            text=" Mở Mail",
+            image=get_icon("mail_open", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=90,
             height=30,
             fg_color="#FFFFFF",
             border_width=1,
@@ -478,8 +481,10 @@ class NotificationPopup(ctk.CTkToplevel):
 
         self.btn_read = ctk.CTkButton(
             action_box,
-            text="✓ Đã đọc",
-            width=70,
+            text=" Đã đọc",
+            image=get_icon("check_circle", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=80,
             height=30,
             fg_color="#FFFFFF",
             border_width=1,
@@ -493,8 +498,10 @@ class NotificationPopup(ctk.CTkToplevel):
 
         self.btn_delete_notif = ctk.CTkButton(
             action_box,
-            text="🗑️ Xóa",
-            width=62,
+            text=" Xóa",
+            image=get_icon("trash", 13, COLOR_RED_BTN),
+            compound="left",
+            width=68,
             height=30,
             fg_color="#FFFFFF",
             border_width=1,
@@ -849,21 +856,24 @@ class EmailReminderApp(ctk.CTk):
 
         # 1.2 Menu Điều Hướng Dọc (Navigation Items)
         nav_items = [
-            ("dashboard", "📊  Dashboard"),
-            ("emails",    "✉️  Emails"),
-            ("threads",   "🧵  Threads"),
-            ("rules",     "⚡  Rules"),
-            ("settings",  "⚙️  Settings"),
-            ("help",      "📖  Help")
+            ("dashboard", "  Dashboard", "dashboard"),
+            ("emails",    "  Emails",    "mail"),
+            ("threads",   "  Threads",   "threads"),
+            ("rules",     "  Rules",     "folder"),
+            ("settings",  "  Settings",  "settings"),
+            ("help",      "  Help",      "help")
         ]
 
+        self.nav_icon_names = {pid: iname for pid, _, iname in nav_items}
         self.nav_menu_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         self.nav_menu_frame.pack(fill="x", padx=12, pady=(0, 20))
 
-        for page_id, label_text in nav_items:
+        for page_id, label_text, iname in nav_items:
             btn = ctk.CTkButton(
                 self.nav_menu_frame,
                 text=label_text,
+                image=get_icon(iname, 16, "#94A3B8"),
+                compound="left",
                 anchor="w",
                 font=("Segoe UI", 12, "bold"),
                 height=42,
@@ -890,7 +900,7 @@ class EmailReminderApp(ctk.CTk):
 
         lbl_sidebar_ver = ctk.CTkLabel(
             sidebar_footer,
-            text="Phiên bản v1.5\n © quangvu@vnpt - 2026",
+            text="Phiên bản v1.6\n © quangvu@vnpt - 2026",
             font=("Segoe UI", 9),
             text_color="#64748B"
         )
@@ -923,7 +933,9 @@ class EmailReminderApp(ctk.CTk):
         # Nút Bật/Dừng theo dõi (Dạng Outline sang trọng)
         self.btn_top_toggle = ctk.CTkButton(
             topbar_actions,
-            text="▶ BẮT ĐẦU THEO DÕI",
+            text=" BẮT ĐẦU THEO DÕI",
+            image=get_icon("play", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
             font=("Segoe UI", 11, "bold"),
             height=34,
             fg_color="#FFFFFF",
@@ -938,7 +950,9 @@ class EmailReminderApp(ctk.CTk):
         # Nút Mở lại thông báo Desktop (Dạng Outline Transparent)
         self.btn_top_reopen = ctk.CTkButton(
             topbar_actions,
-            text="👁️ Xem thông báo",
+            text=" Xem thông báo",
+            image=get_icon("eye", 14, COLOR_PRIMARY_BLUE),
+            compound="left",
             font=("Segoe UI", 11, "bold"),
             height=34,
             fg_color="#FFFFFF",
@@ -955,7 +969,9 @@ class EmailReminderApp(ctk.CTk):
         user_badge.pack(side="left")
         lbl_user = ctk.CTkLabel(
             user_badge,
-            text="👤 VNPT User",
+            text=" VNPT User",
+            image=get_icon("user", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
             font=("Segoe UI", 11, "bold"),
             text_color=COLOR_PRIMARY_BLUE
         )
@@ -982,12 +998,21 @@ class EmailReminderApp(ctk.CTk):
             else:
                 frame.pack_forget()
 
-        # Cập nhật style nút Sidebar
+        # Cập nhật style nút Sidebar & Icon
         for pid, btn in self.nav_buttons.items():
+            iname = getattr(self, 'nav_icon_names', {}).get(pid, "dashboard")
             if pid == page_id:
-                btn.configure(fg_color=COLOR_SIDEBAR_ACTIVE, text_color="#FFFFFF")
+                btn.configure(
+                    fg_color=COLOR_SIDEBAR_ACTIVE, 
+                    text_color="#FFFFFF",
+                    image=get_icon(iname, 16, "#FFFFFF")
+                )
             else:
-                btn.configure(fg_color="transparent", text_color="#CBD5E1")
+                btn.configure(
+                    fg_color="transparent", 
+                    text_color="#CBD5E1",
+                    image=get_icon(iname, 16, "#94A3B8")
+                )
 
         # Cập nhật tiêu đề Topbar
         title_map = {
@@ -1250,8 +1275,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_open = ctk.CTkButton(
             btn_row,
-            text="✉️ Mở Mail",
-            width=76,
+            text=" Mở Mail",
+            image=get_icon("mail_open", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=84,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1265,8 +1292,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_mark_read = ctk.CTkButton(
             btn_row,
-            text="✓ Đã đọc",
-            width=68,
+            text=" Đã đọc",
+            image=get_icon("check_circle", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=78,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1280,8 +1309,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_copy = ctk.CTkButton(
             btn_row,
-            text="📋 Copy",
-            width=62,
+            text=" Copy",
+            image=get_icon("copy", 13, "#475569"),
+            compound="left",
+            width=68,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1295,8 +1326,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_del = ctk.CTkButton(
             btn_row,
-            text="🗑️ Xóa",
-            width=60,
+            text=" Xóa",
+            image=get_icon("trash", 13, COLOR_RED_BTN),
+            compound="left",
+            width=66,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1491,7 +1524,14 @@ class EmailReminderApp(ctk.CTk):
         inner = ctk.CTkFrame(top_ctrl, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=12)
 
-        ctk.CTkLabel(inner, text="🔍 Tìm kiếm:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(
+            inner, 
+            text=" Tìm kiếm:", 
+            image=get_icon("search", 15, COLOR_PRIMARY_BLUE), 
+            compound="left",
+            font=("Segoe UI", 12, "bold"), 
+            text_color=COLOR_TEXT_MAIN
+        ).pack(side="left", padx=(0, 8))
         self.entry_email_search = ctk.CTkEntry(inner, placeholder_text="Nhập từ khóa, tên người gửi hoặc tiêu đề...", width=320, fg_color="#FFFFFF", border_color=COLOR_BORDER)
         self.entry_email_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_email_search.bind("<KeyRelease>", lambda e: self.filter_emails_history())
@@ -1499,8 +1539,10 @@ class EmailReminderApp(ctk.CTk):
         # Nút đổi chiều sắp xếp thời gian (Mới nhất / Cũ nhất)
         self.btn_email_sort = ctk.CTkButton(
             inner,
-            text="⇅ Mới nhất",
-            width=105,
+            text=" Mới nhất",
+            image=get_icon("sort", 14, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=110,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1514,8 +1556,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_refresh = ctk.CTkButton(
             inner,
-            text="🔄 Làm mới",
-            width=95,
+            text=" Làm mới",
+            image=get_icon("refresh", 13, "#475569"),
+            compound="left",
+            width=100,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1538,11 +1582,11 @@ class EmailReminderApp(ctk.CTk):
         if self.email_sort_order == "newest":
             self.email_sort_order = "oldest"
             if hasattr(self, "btn_email_sort"):
-                self.btn_email_sort.configure(text="⇅ Cũ nhất")
+                self.btn_email_sort.configure(text=" Cũ nhất")
         else:
             self.email_sort_order = "newest"
             if hasattr(self, "btn_email_sort"):
-                self.btn_email_sort.configure(text="⇅ Mới nhất")
+                self.btn_email_sort.configure(text=" Mới nhất")
         self.filter_emails_history()
 
     def filter_emails_history(self):
@@ -1593,15 +1637,24 @@ class EmailReminderApp(ctk.CTk):
         inner = ctk.CTkFrame(top_ctrl, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=12)
 
-        ctk.CTkLabel(inner, text="🔍 Tìm kiếm chuỗi:", font=("Segoe UI", 12, "bold"), text_color=COLOR_TEXT_MAIN).pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(
+            inner, 
+            text=" Tìm kiếm chuỗi:", 
+            image=get_icon("search", 15, COLOR_PRIMARY_BLUE), 
+            compound="left",
+            font=("Segoe UI", 12, "bold"), 
+            text_color=COLOR_TEXT_MAIN
+        ).pack(side="left", padx=(0, 8))
         self.entry_thread_search = ctk.CTkEntry(inner, placeholder_text="Nhập từ khóa tiêu đề, người gửi hoặc nội dung tóm tắt chuỗi...", width=320, fg_color="#FFFFFF", border_color=COLOR_BORDER)
         self.entry_thread_search.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_thread_search.bind("<KeyRelease>", lambda e: self.refresh_threads_list())
 
         self.btn_thread_sort = ctk.CTkButton(
             inner,
-            text="⇅ Mới nhất",
-            width=105,
+            text=" Mới nhất",
+            image=get_icon("sort", 14, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=110,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1615,8 +1668,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_refresh = ctk.CTkButton(
             inner,
-            text="🔄 Làm mới",
-            width=95,
+            text=" Làm mới",
+            image=get_icon("refresh", 13, "#475569"),
+            compound="left",
+            width=100,
             height=32,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1640,11 +1695,11 @@ class EmailReminderApp(ctk.CTk):
         if getattr(self, "thread_sort_order", "newest") == "newest":
             self.thread_sort_order = "oldest"
             if hasattr(self, "btn_thread_sort"):
-                self.btn_thread_sort.configure(text="⇅ Cũ nhất")
+                self.btn_thread_sort.configure(text=" Cũ nhất")
         else:
             self.thread_sort_order = "newest"
             if hasattr(self, "btn_thread_sort"):
-                self.btn_thread_sort.configure(text="⇅ Mới nhất")
+                self.btn_thread_sort.configure(text=" Mới nhất")
         self.refresh_threads_list()
 
     def refresh_threads_list(self):
@@ -1718,8 +1773,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_open = ctk.CTkButton(
             btn_row,
-            text="✉️ Mở Mail",
-            width=76,
+            text=" Mở mới nhất",
+            image=get_icon("mail_open", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=96,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1733,8 +1790,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_mark_thread = ctk.CTkButton(
             btn_row,
-            text="✓ Đã đọc",
-            width=76,
+            text=" Đã đọc",
+            image=get_icon("check_circle", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=78,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1748,8 +1807,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_copy = ctk.CTkButton(
             btn_row,
-            text="📋 Copy tóm tắt",
-            width=100,
+            text=" Copy tóm tắt",
+            image=get_icon("copy", 13, "#475569"),
+            compound="left",
+            width=105,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1763,8 +1824,10 @@ class EmailReminderApp(ctk.CTk):
 
         btn_del = ctk.CTkButton(
             btn_row,
-            text="🗑️ Xóa chuỗi",
-            width=85,
+            text=" Xóa chuỗi",
+            image=get_icon("trash", 13, COLOR_RED_BTN),
+            compound="left",
+            width=90,
             height=26,
             fg_color="#FFFFFF",
             border_width=1,
@@ -1878,7 +1941,9 @@ class EmailReminderApp(ctk.CTk):
 
             self.btn_scan_folders = ctk.CTkButton(
                 top_bar,
-                text="🔍 Scan thư mục",
+                text=" Quét thư mục",
+                image=get_icon("search", 13, COLOR_PRIMARY_BLUE),
+                compound="left",
                 height=30,
                 fg_color="#FFFFFF",
                 border_width=1,
@@ -1892,7 +1957,7 @@ class EmailReminderApp(ctk.CTk):
 
             self.entry_folder_search = ctk.CTkEntry(
                 top_bar,
-                placeholder_text="🔍 Tìm nhanh thư mục...",
+                placeholder_text="Tìm nhanh thư mục...",
                 height=28,
                 fg_color="#FFFFFF",
                 border_color=COLOR_BORDER,
@@ -1910,7 +1975,9 @@ class EmailReminderApp(ctk.CTk):
 
             btn_cancel = ctk.CTkButton(
                 frame,
-                text="🗑️ Hủy Lựa Chọn",
+                text=" Hủy lựa chọn",
+                image=get_icon("trash", 13, "#475569"),
+                compound="left",
                 height=32,
                 fg_color="#FFFFFF",
                 border_width=1,
@@ -1940,8 +2007,10 @@ class EmailReminderApp(ctk.CTk):
 
             btn = ctk.CTkButton(
                 input_frame, 
-                text="Thêm", 
-                width=55, 
+                text=" Thêm", 
+                image=get_icon("plus", 12, COLOR_PRIMARY_BLUE),
+                compound="left",
+                width=65, 
                 fg_color="#FFFFFF", 
                 border_width=1, 
                 border_color=COLOR_PRIMARY_BLUE, 
@@ -1956,8 +2025,10 @@ class EmailReminderApp(ctk.CTk):
             if config_key == "senders":
                 btn_contacts = ctk.CTkButton(
                     input_frame,
-                    text="👥 Gợi ý",
-                    width=60,
+                    text=" Gợi ý",
+                    image=get_icon("sparkles", 13, "#475569"),
+                    compound="left",
+                    width=68,
                     fg_color="#F1F5F9",
                     border_width=1,
                     border_color="#CBD5E1",
@@ -1985,7 +2056,9 @@ class EmailReminderApp(ctk.CTk):
 
             btn_rm = ctk.CTkButton(
                 frame, 
-                text="🗑️ Xóa sạch", 
+                text=" Xóa sạch", 
+                image=get_icon("trash", 13, "#475569"),
+                compound="left",
                 height=32,
                 fg_color="#FFFFFF", 
                 border_width=1, 
@@ -2124,20 +2197,22 @@ class EmailReminderApp(ctk.CTk):
             name = (c.get("name") or "").strip()
 
             if email and "@" in email and not email.startswith("/O="):
-                display_text = f"✉️ {email}"
+                display_text = email
             elif val and "<" in val:
                 match = re.search(r'<([^>]+)>', val)
-                display_text = f"✉️ {match.group(1).strip()}" if match else f"👤 {val}"
+                display_text = match.group(1).strip() if match else val
             elif "@" in val and not val.startswith("/O="):
-                display_text = f"✉️ {val}"
+                display_text = val
             elif name:
-                display_text = f"👤 {name}"
+                display_text = name
             else:
-                display_text = f"👤 {val}"
+                display_text = val
             
             btn = ctk.CTkButton(
                 self.sender_suggest_box,
-                text=display_text,
+                text=f"  {display_text}",
+                image=get_icon("mail", 12, COLOR_PRIMARY_BLUE),
+                compound="left",
                 height=26,
                 fg_color="transparent",
                 hover_color="#E0F2FE",
@@ -2708,8 +2783,10 @@ class EmailReminderApp(ctk.CTk):
 
         self.btn_test_tele = ctk.CTkButton(
             tele_btn_row,
-            text="🔔 Test Telegram",
-            width=120,
+            text=" Test Telegram",
+            image=get_icon("bell", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=125,
             height=30,
             fg_color="#FFFFFF",
             border_width=1,
@@ -2723,8 +2800,10 @@ class EmailReminderApp(ctk.CTk):
 
         self.btn_test_popup = ctk.CTkButton(
             tele_btn_row,
-            text="📬 Test Desktop Notification",
-            width=180,
+            text=" Test Desktop Popup",
+            image=get_icon("eye", 13, COLOR_PRIMARY_BLUE),
+            compound="left",
+            width=150,
             height=30,
             fg_color="#FFFFFF",
             border_width=1,
@@ -2749,7 +2828,9 @@ class EmailReminderApp(ctk.CTk):
 
         btn_save = ctk.CTkButton(
             sec5,
-            text="💾 LƯU CẤU HÌNH HỆ THỐNG",
+            text=" LƯU CẤU HÌNH HỆ THỐNG",
+            image=get_icon("save", 15, COLOR_PRIMARY_BLUE),
+            compound="left",
             font=("Segoe UI", 12, "bold"),
             height=38,
             fg_color="#FFFFFF",
@@ -3170,7 +3251,9 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             self.is_running = True
             self.stop_event.clear()
             self.btn_top_toggle.configure(
-                text="⬛ DỪNG THEO DÕI",
+                text=" DỪNG THEO DÕI",
+                image=get_icon("stop", 13, COLOR_RED_BTN),
+                compound="left",
                 fg_color="#FFFFFF",
                 border_width=1,
                 border_color=COLOR_RED_BTN,
@@ -3185,7 +3268,9 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             self.is_running = False
             self.stop_event.set()
             self.btn_top_toggle.configure(
-                text="▶ BẮT ĐẦU THEO DÕI",
+                text=" BẮT ĐẦU THEO DÕI",
+                image=get_icon("play", 13, COLOR_PRIMARY_BLUE),
+                compound="left",
                 fg_color="#FFFFFF",
                 border_width=1,
                 border_color=COLOR_PRIMARY_BLUE,

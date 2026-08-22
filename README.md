@@ -1,11 +1,15 @@
-# 📬 eMail Assistant v1.5 (VNPT AI Assistant)
+# 📬 eMail Assistant v1.6 (VNPT AI Assistant)
 
-> **Ứng dụng trợ lý email tự động thông minh: Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Tự động gợi ý & Phím tắt Tab cho Senders, Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), Tóm tắt nội dung bằng AI (Offline / Online), Hiển thị thông báo nổi trên Desktop và Tương tác phản hồi 2 chiều qua Telegram.**
+> **Ứng dụng trợ lý email tự động thông minh: Giao diện Modern SaaS với Hệ thống Icon Vector High-DPI chuẩn Retina/4K, Quản lý & Tóm tắt Chuỗi Hội Thoại Email (Email Threads), Tự động gợi ý & Phím tắt Tab cho Senders, Quét đa nguồn Microsoft Outlook và Đa tài khoản Webmail (IMAP), Tóm tắt nội dung bằng AI (Offline / Online), Hiển thị thông báo nổi trên Desktop và Tương tác phản hồi 2 chiều qua Telegram.**
 
 ---
 
-## 🌟 Tính năng mới nổi bật trong phiên bản v1.5
+## 🌟 Tính năng mới nổi bật trong phiên bản v1.6
 
+- 💎 **Hệ Thống Icon Vector High-DPI Siêu Sắc Nét (Modern Lucide Vector Icons):**
+  - **Tự động sinh vector khử răng cưa (Supersampling 4x Anti-aliasing):** Toàn bộ các icon trên ứng dụng (Kính lúp Tìm kiếm, Làm mới xoay tròn, Sắp xếp 2 chiều, Mở thư viền mảnh, Đã đọc tích tròn, Copy 2 lớp giấy, Thùng rác, Nút Play/Stop, Mắt xem thông báo, Bánh răng cài đặt...) được render trực tiếp bằng vector độ phân giải cao, hiển thị siêu nét trên cả màn hình Full HD, 2K và 4K.
+  - **Đồng bộ màu sắc thương hiệu VNPT:** Icon chuyển màu thông minh theo trạng thái nút bấm (Xanh `#0066CC`, Xám bạc `#94A3B8`, Xanh lá `#10B981`, Đỏ `#EF4444`, Trắng tinh `#FFFFFF`).
+  - **Menu Sidebar & Action Buttons Đẳng Cấp:** Loại bỏ hoàn toàn các emoji thô sơ, thay thế bằng bộ icon thanh lịch chuẩn thiết kế ứng dụng Windows 11 / macOS hiện đại.
 - 👥 **Gợi Ý Người Gửi Thông Minh (Contacts & Senders Autocomplete) + Phím Tắt `Tab`:**
   - **Tự động gom liên hệ:** Trích xuất tức thời danh bạ và người gửi gần đây từ Outlook, CSDL SQLite Threads và Cache tóm tắt với bộ nhớ đệm tốc độ cao (`data/contacts_cache.json`).
   - **Tìm kiếm tức thì:** Tìm kiếm linh hoạt theo Tên, Email, Username tiếng Việt Unicode NFC không phân biệt hoa thường.
@@ -16,7 +20,7 @@
   - **Tự động quét toàn bộ hòm thư:** Khi cột Folders để trống, ứng dụng sẽ tự động duyệt xuyên suốt qua **tất cả các thư mục mail & thư mục con** để tìm kiếm chính xác email từ `👤 Senders` hoặc chứa `🔑 Keywords`.
   - **Tìm kiếm nhanh thư mục (Fast Folders Search):** Ô tìm kiếm lọc tức thì cây thư mục, tự động làm sạch ô tìm kiếm sau khi tick chọn thư mục.
 - 🗑️ **Đồng Bộ Xóa Trực Tiếp Vào Thùng Rác (Direct Trash Sync):**
-  - Khi bấm nút `🗑️ Xóa` trên từng Email hoặc Thread, ứng dụng sẽ gửi lệnh chuyển trực tiếp email đó vào thư mục **Thùng rác (Deleted Items / Trash)** trên máy chủ Outlook và Webmail IMAP.
+  - Khi bấm nút `Xóa` trên từng Email hoặc Thread, ứng dụng sẽ gửi lệnh chuyển trực tiếp email đó vào thư mục **Thùng rác (Deleted Items / Trash)** trên máy chủ Outlook và Webmail IMAP.
   - Hỗ trợ mở trực tiếp email mới nhất của chuỗi Thread bằng 1 click.
 - 🎨 **Chuẩn Hóa Giao Diện & Typography Hiện Đại:**
   - **Đồng bộ Typography:** Tiêu đề và nội dung tóm tắt trang **Emails** đồng bộ chuẩn 100% font chữ với trang **Threads** (`Segoe UI 12 Bold` cho tiêu đề, `Segoe UI 11` với hộp thoại co giãn tự động theo độ dài tóm tắt).
