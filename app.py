@@ -31,6 +31,16 @@ DATA_DIR = os.path.join(APP_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
+# Kích hoạt Windows DPI Awareness để hiển thị chuẩn 1:1, không bị Windows phóng to vỡ hình trên màn hình 125%, 150%
+try:
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)  # PROCESS_SYSTEM_DPI_AWARE
+        except Exception:
+            ctypes.windll.user32.SetProcessDPIAware()
+except Exception:
+    pass
+
 # Thiết lập chế độ Light (Sáng) chuẩn giao diện VNPT SaaS
 ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
@@ -311,8 +321,18 @@ class NotificationPopup(ctk.CTkToplevel):
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         
-        self.popup_w = 460
-        self.popup_h = 285
+        # Tự động tính kích thước thích ứng (Adaptive Responsive Sizing) theo độ phân giải màn hình
+        try:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            # Màn hình lớn (>=1080p): rộng 410px, cao 245px gọn gàng
+            # Màn hình nhỏ (<900p): tự động co lại để không chiếm quá 25% màn hình
+            self.popup_w = min(410, max(350, int(screen_w * 0.25)))
+            self.popup_h = min(245, max(205, int(screen_h * 0.28)))
+        except Exception:
+            self.popup_w = 410
+            self.popup_h = 245
+
         self._position_smart()
 
         # Kéo popup bằng chuột (drag support)
@@ -322,42 +342,56 @@ class NotificationPopup(ctk.CTkToplevel):
         self.card = ctk.CTkFrame(
             self, 
             fg_color=COLOR_CARD_WHITE, 
-            corner_radius=12, 
+            corner_radius=10, 
             border_width=2, 
             border_color=COLOR_PRIMARY_BLUE
         )
         self.card.pack(fill="both", expand=True, padx=2, pady=2)
 
-        header = ctk.CTkFrame(self.card, fg_color=COLOR_PRIMARY_BLUE, corner_radius=10, height=36)
+        header = ctk.CTkFrame(self.card, fg_color=COLOR_PRIMARY_BLUE, corner_radius=8, height=32)
         header.pack(fill="x", padx=4, pady=4)
         header.pack_propagate(False)
 
         lbl_logo = ctk.CTkLabel(
             header, 
             text="📬 THÔNG BÁO EMAIL MỚI", 
-            font=("Segoe UI", 11, "bold"), 
+            font=("Segoe UI", 10, "bold"), 
             text_color="#FFFFFF"
         )
-        lbl_logo.pack(side="left", padx=10, pady=4)
+        lbl_logo.pack(side="left", padx=8, pady=2)
 
         btn_close = ctk.CTkButton(
             header, 
             text="✕", 
-            width=26, 
-            height=24, 
+            width=24, 
+            height=22, 
             fg_color="transparent", 
             hover_color=COLOR_RED_BTN, 
             text_color="#FFFFFF",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             command=self.close_popup
         )
-        btn_close.pack(side="right", padx=(2, 6), pady=4)
+        btn_close.pack(side="right", padx=(2, 4), pady=2)
 
         # Cho phép kéo popup bằng cách giữ chuột vào header
         header.bind("<ButtonPress-1>", self._on_drag_start)
         header.bind("<B1-Motion>", self._on_drag_motion)
         lbl_logo.bind("<ButtonPress-1>", self._on_drag_start)
         lbl_logo.bind("<B1-Motion>", self._on_drag_motion)
+
+        self.btn_pin = ctk.CTkButton(
+            header, 
+            text="📌", 
+            width=24, 
+            height=22, 
+            fg_color="transparent", 
+            hover_color=COLOR_HOVER_BLUE, 
+            text_color="#FFFFFF",
+            font=("Segoe UI", 10),
+            command=self.toggle_pin
+        )
+        self.btn_pin.pack(side="right", padx=2, pady=2)
+
         self.lbl_timer = ctk.CTkLabel(
             header,
             text=f"⏱️ {self.countdown}s",
@@ -366,27 +400,7 @@ class NotificationPopup(ctk.CTkToplevel):
         )
         self.lbl_timer.bind("<ButtonPress-1>", self._on_drag_start)
         self.lbl_timer.bind("<B1-Motion>", self._on_drag_motion)
-
-        self.btn_pin = ctk.CTkButton(
-            header, 
-            text="📌", 
-            width=26, 
-            height=24, 
-            fg_color="transparent", 
-            hover_color=COLOR_HOVER_BLUE, 
-            text_color="#FFFFFF",
-            font=("Segoe UI", 11),
-            command=self.toggle_pin
-        )
-        self.btn_pin.pack(side="right", padx=2, pady=4)
-
-        self.lbl_timer = ctk.CTkLabel(
-            header,
-            text=f"⏱️ {self.countdown}s",
-            font=("Segoe UI", 10),
-            text_color="#B8DCF5"
-        )
-        self.lbl_timer.pack(side="right", padx=6, pady=4)
+        self.lbl_timer.pack(side="right", padx=4, pady=2)
 
         info_frame = ctk.CTkFrame(self.card, fg_color="transparent")
         info_frame.pack(side="top", fill="x", padx=12, pady=(2, 1))
@@ -466,16 +480,16 @@ class NotificationPopup(ctk.CTkToplevel):
         self.lbl_subject = ctk.CTkLabel(
             info_frame,
             text="✉️ Tiêu đề thư...",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 10, "bold"),
             text_color=COLOR_PRIMARY_BLUE,
             anchor="w",
-            wraplength=425,
+            wraplength=self.popup_w - 35,
             justify="left"
         )
         self.lbl_subject.pack(fill="x", pady=(1, 1))
 
-        self.footer = ctk.CTkFrame(self.card, fg_color="transparent", height=38)
-        self.footer.pack(side="bottom", fill="x", padx=12, pady=(2, 8))
+        self.footer = ctk.CTkFrame(self.card, fg_color="transparent", height=32)
+        self.footer.pack(side="bottom", fill="x", padx=10, pady=(2, 6))
 
         action_box = ctk.CTkFrame(self.footer, fg_color="transparent")
         action_box.pack(side="right")
@@ -483,50 +497,50 @@ class NotificationPopup(ctk.CTkToplevel):
         self.btn_open_mail = ctk.CTkButton(
             action_box,
             text=" Mở Mail",
-            image=get_icon("mail_open", 13, COLOR_PRIMARY_BLUE),
+            image=get_icon("mail_open", 12, COLOR_PRIMARY_BLUE),
             compound="left",
-            width=90,
-            height=30,
+            width=80,
+            height=26,
             fg_color="#FFFFFF",
             border_width=1,
             border_color=COLOR_PRIMARY_BLUE,
             text_color=COLOR_PRIMARY_BLUE,
             hover_color="#F0F7FF",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 10, "bold"),
             command=self.open_current_email
         )
-        self.btn_open_mail.pack(side="left", padx=(0, 6))
+        self.btn_open_mail.pack(side="left", padx=(0, 5))
 
         self.btn_read = ctk.CTkButton(
             action_box,
             text=" Đã đọc",
-            image=get_icon("check_circle", 13, COLOR_PRIMARY_BLUE),
+            image=get_icon("check_circle", 12, COLOR_PRIMARY_BLUE),
             compound="left",
-            width=80,
-            height=30,
+            width=72,
+            height=26,
             fg_color="#FFFFFF",
             border_width=1,
             border_color=COLOR_PRIMARY_BLUE,
             text_color=COLOR_PRIMARY_BLUE,
             hover_color="#F0F7FF",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 10, "bold"),
             command=self.mark_current_email_read
         )
-        self.btn_read.pack(side="left", padx=(0, 6))
+        self.btn_read.pack(side="left", padx=(0, 5))
 
         self.btn_delete_notif = ctk.CTkButton(
             action_box,
             text=" Xóa",
-            image=get_icon("trash", 13, COLOR_RED_BTN),
+            image=get_icon("trash", 12, COLOR_RED_BTN),
             compound="left",
-            width=68,
-            height=30,
+            width=62,
+            height=26,
             fg_color="#FFFFFF",
             border_width=1,
             border_color="#CBD5E1",
             text_color=COLOR_RED_BTN,
             hover_color="#FEF2F2",
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 10, "bold"),
             command=self.delete_current_notification
         )
         self.btn_delete_notif.pack(side="left")
@@ -534,13 +548,13 @@ class NotificationPopup(ctk.CTkToplevel):
         self.txt_content = ctk.CTkTextbox(
             self.card, 
             wrap="word", 
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 10),
             fg_color="#F8FAFC",
             border_width=1,
             border_color=COLOR_BORDER,
-            corner_radius=8
+            corner_radius=6
         )
-        self.txt_content.pack(side="top", fill="both", expand=True, padx=12, pady=(0, 2))
+        self.txt_content.pack(side="top", fill="both", expand=True, padx=10, pady=(0, 2))
 
         self.bind("<Enter>", self.on_mouse_enter)
         self.bind("<Leave>", self.on_mouse_leave)
