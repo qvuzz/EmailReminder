@@ -447,7 +447,7 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
                                 "sender": sender_display,
                                 "time": recv_time.strftime("%H:%M %d/%m/%Y"),
                                 "summary": summary,
-                                "body": body,
+                                "body": body_raw,
                                 "server": acc.get("server", ""),
                                 "user": acc.get("user", ""),
                                 "msg_id": msg_id,
