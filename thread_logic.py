@@ -242,6 +242,9 @@ def delete_thread_with_emails(thread_id, config=None, log_callback=None):
     success_count = 0
     accounts = config.get("imap_accounts", []) if config else []
 
+    # Xóa bản ghi trong SQLite ngay từ đầu để UI và các luồng khác không hiển thị lại thread này
+    delete_thread(thread_id)
+
     for item in items:
         # 1. Outlook
         if item.get("entry_id"):
@@ -274,11 +277,8 @@ def delete_thread_with_emails(thread_id, config=None, log_callback=None):
                 except Exception:
                     pass
 
-    # Xóa bản ghi trong SQLite
-    delete_thread(thread_id)
-
     if log_callback:
-        log_callback(f"🗑️ Đã xóa chuỗi và chuyển {success_count}/{len(items) if items else 1} email vào thùng rác: '{thread.get('subject')}'")
+        log_callback(f"🗑️ Đã chuyển {success_count}/{len(items) if items else 1} email trong chuỗi vào thùng rác: '{thread.get('subject')}'")
     return True
 
 

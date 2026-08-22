@@ -1341,11 +1341,11 @@ class EmailReminderApp(ctk.CTk):
             text_color=COLOR_RED_BTN,
             hover_color="#FEF2F2",
             font=("Segoe UI", 10, "bold"),
-            command=lambda e=email: self.delete_single_email_from_history(e)
+            command=lambda e=email, b=None, c=card: self.delete_single_email_from_history(e, btn_widget=btn_del, card_widget=card)
         )
         btn_del.pack(side="right")
 
-    def delete_single_email_from_history(self, email):
+    def delete_single_email_from_history(self, email, btn_widget=None, card_widget=None):
         """Xóa 1 email khỏi danh sách lịch sử và chuyển trực tiếp vào Thùng rác trên Outlook/Webmail"""
         if not email:
             return False
@@ -1358,12 +1358,9 @@ class EmailReminderApp(ctk.CTk):
         ):
             return False
 
-        if email in self.latest_notifications:
-            self.latest_notifications.remove(email)
-            self.stat_unread_count = len(self.latest_notifications)
-            if hasattr(self, 'lbl_stat_unread'):
-                self.lbl_stat_unread.configure(text=str(self.stat_unread_count))
-            self.filter_emails_history()
+        # Hiển thị ngay trạng thái 'Đang xóa...' trên nút bấm để người dùng an tâm
+        if btn_widget and btn_widget.winfo_exists():
+            btn_widget.configure(text=" Đang xóa...", state="disabled", fg_color="#F1F5F9", text_color="#94A3B8")
 
         # Đồng bộ loại bỏ khỏi popup nếu popup đang mở
         if hasattr(self, 'notification_popup') and self.notification_popup and self.notification_popup.winfo_exists():
@@ -1396,6 +1393,18 @@ class EmailReminderApp(ctk.CTk):
                         delete_email_imap(matched_acc, raw_folder, msg_id, email_id, log_callback=self.log)
             except Exception as e:
                 self.log(f"⚠️ Lỗi khi chuyển thư vào thùng rác: {e}")
+            finally:
+                def _ui_done():
+                    if email in self.latest_notifications:
+                        self.latest_notifications.remove(email)
+                        self.stat_unread_count = len(self.latest_notifications)
+                        if hasattr(self, 'lbl_stat_unread'):
+                            self.lbl_stat_unread.configure(text=str(self.stat_unread_count))
+                    if card_widget and card_widget.winfo_exists():
+                        card_widget.destroy()
+                    else:
+                        self.filter_emails_history()
+                self.after(0, _ui_done)
 
         threading.Thread(target=_bg_del, daemon=True).start()
         self.log(f"🗑️ Đang chuyển email vào Thùng rác: '{email.get('subject', '')}'")
@@ -1848,7 +1857,7 @@ class EmailReminderApp(ctk.CTk):
             text_color=COLOR_RED_BTN,
             hover_color="#FEF2F2",
             font=("Segoe UI", 10, "bold"),
-            command=lambda t=thread_item: self.delete_single_thread_ui(t.get("id"), t)
+            command=lambda t=thread_item, b=None, c=card: self.delete_single_thread_ui(t.get("id"), t, btn_widget=btn_del, card_widget=card)
         )
         btn_del.pack(side="right")
 
@@ -1915,7 +1924,7 @@ class EmailReminderApp(ctk.CTk):
         except Exception:
             pass
 
-    def delete_single_thread_ui(self, thread_id, thread_item=None):
+    def delete_single_thread_ui(self, thread_id, thread_item=None, btn_widget=None, card_widget=None):
         """Xóa chuỗi trong DB và chuyển tất cả các email trong chuỗi vào thùng rác trên server"""
         if not thread_id:
             return False
@@ -1931,13 +1940,21 @@ class EmailReminderApp(ctk.CTk):
         ):
             return False
 
+        # Hiển thị ngay 'Đang xóa...' trên nút bấm để tránh click nhiều lần
+        if btn_widget and btn_widget.winfo_exists():
+            btn_widget.configure(text=" Đang xóa...", state="disabled", fg_color="#F1F5F9", text_color="#94A3B8")
+
         from thread_logic import delete_thread_with_emails
         def _bg():
             delete_thread_with_emails(thread_id, config=self.config, log_callback=self.log)
-            self.after(0, self.refresh_threads_list)
+            def _ui_done():
+                if card_widget and card_widget.winfo_exists():
+                    card_widget.destroy()
+                else:
+                    self.refresh_threads_list()
+            self.after(0, _ui_done)
 
         threading.Thread(target=_bg, daemon=True).start()
-        self.refresh_threads_list()
         self.log(f"🗑️ Đang chuyển tất cả email trong chuỗi '{subj}' vào thùng rác...")
         return True
 
