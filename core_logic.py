@@ -565,6 +565,84 @@ def delete_email_outlook(entry_id, log_callback=None):
     return False
 
 
+def fetch_outlook_recent_contacts(limit=300, log_callback=None):
+    """Lấy danh sách người gửi và danh bạ gần đây từ Microsoft Outlook để gợi ý tìm kiếm"""
+    contacts = []
+    seen = set()
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+
+        # 1. Quét từ Hòm thư đến Inbox gần nhất
+        try:
+            inbox = outlook.GetDefaultFolder(6)  # olFolderInbox
+            items = inbox.Items
+            items.Sort("[ReceivedTime]", True)
+            for it in list(items)[:limit]:
+                try:
+                    s_name = (getattr(it, 'SenderName', '') or '').strip()
+                    s_email = (getattr(it, 'SenderEmailAddress', '') or '').strip()
+                    if s_email.startswith("/O=") or s_email.startswith("/o="):
+                        try:
+                            sender_obj = getattr(it, 'Sender', None)
+                            if sender_obj:
+                                ex_user = sender_obj.GetExchangeUser()
+                                if ex_user and ex_user.PrimarySmtpAddress:
+                                    s_email = ex_user.PrimarySmtpAddress.strip()
+                        except Exception:
+                            pass
+
+                    email_clean = s_email if not (s_email.startswith("/O=") or s_email.startswith("/o=")) else ""
+                    if email_clean or s_name:
+                        key = (email_clean.lower() if email_clean else s_name.lower())
+                        if key and key not in seen:
+                            seen.add(key)
+                            contacts.append({
+                                "name": s_name,
+                                "email": email_clean,
+                                "filter_val": email_clean if email_clean else s_name
+                            })
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 2. Quét từ Danh bạ Contacts
+        try:
+            cf = outlook.GetDefaultFolder(10)  # olFolderContacts
+            c_items = cf.Items
+            for item in list(c_items)[:limit]:
+                try:
+                    name = (getattr(item, 'FullName', '') or getattr(item, 'Subject', '') or '').strip()
+                    email = (getattr(item, 'Email1Address', '') or getattr(item, 'Email2Address', '') or '').strip()
+                    if email or name:
+                        key = (email.lower() if email else name.lower())
+                        if key and key not in seen:
+                            seen.add(key)
+                            contacts.append({
+                                "name": name,
+                                "email": email,
+                                "filter_val": email if email else name
+                            })
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    except Exception as e:
+        if log_callback:
+            log_callback(f"⚠️ Lỗi lấy danh bạ Outlook: {e}")
+    finally:
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+    return contacts
+
+
 def scan_all_available_folders(config, log_callback=None):
     """Quét và trả về danh sách thư mục được nhóm theo từng tài khoản email"""
     grouped_folders = {}  # group_title -> [folder_names]

@@ -12,7 +12,7 @@ import pystray
 from pystray import MenuItem as item
 from core_logic import (
     scan_emails, send_telegram, mark_email_as_read_outlook, delete_email_outlook,
-    telegram_polling_worker, scan_all_available_folders, _norm
+    telegram_polling_worker, scan_all_available_folders, fetch_outlook_recent_contacts, _norm
 )
 from imap_logic import scan_emails_imap, test_imap_connection_logic, mark_email_as_read_imap, delete_email_imap
 from security import encrypt_password, decrypt_password, is_encrypted
@@ -776,6 +776,9 @@ class EmailReminderApp(ctk.CTk):
         self.latest_notifications = []
         self.email_sort_order = "newest"  # "newest" (Mới -> Cũ) hoặc "oldest" (Cũ -> Mới)
         self._reopen_popup_timer = None
+        self.cached_contacts = []
+        self.sender_suggest_box = None
+        self.load_contacts_cache_bg()
 
         # Thống kê hoạt động phiên hiện tại
         self.stat_scans_count = 0
@@ -1916,7 +1919,13 @@ class EmailReminderApp(ctk.CTk):
             input_frame = ctk.CTkFrame(frame, fg_color="transparent")
             input_frame.pack(fill="x", padx=12, pady=5)
 
-            entry = ctk.CTkEntry(input_frame, placeholder_text="Nhập và bấm Thêm...", fg_color="#FFFFFF", border_color=COLOR_BORDER, text_color=COLOR_TEXT_MAIN)
+            entry = ctk.CTkEntry(
+                input_frame, 
+                placeholder_text="Nhập email/tên và bấm Thêm..." if config_key == "senders" else "Nhập từ khóa và bấm Thêm...", 
+                fg_color="#FFFFFF", 
+                border_color=COLOR_BORDER, 
+                text_color=COLOR_TEXT_MAIN
+            )
             entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
             btn = ctk.CTkButton(
@@ -1933,6 +1942,13 @@ class EmailReminderApp(ctk.CTk):
             )
             btn.pack(side="right")
             entry.bind("<Return>", lambda event: self.add_filter_item(config_key, entry))
+
+            if config_key == "senders":
+                suggest_frame = ctk.CTkFrame(frame, fg_color="#FFFFFF", corner_radius=6, border_width=1, border_color=COLOR_PRIMARY_BLUE)
+                self.sender_suggest_box = suggest_frame
+                self.sender_suggest_entry = entry
+                entry.bind("<KeyRelease>", lambda event: self._on_sender_input_key_release(entry))
+                entry.bind("<FocusOut>", lambda event: self.after(250, self._hide_sender_suggestions))
 
             scroll_frame = ctk.CTkScrollableFrame(frame, fg_color="#F8FAFC", corner_radius=8)
             scroll_frame.pack(fill="both", expand=True, padx=12, pady=6)
@@ -1953,6 +1969,111 @@ class EmailReminderApp(ctk.CTk):
                 command=lambda: self.clear_filter_list(config_key)
             )
             btn_rm.pack(fill="x", padx=12, pady=(4, 12))
+
+    def load_contacts_cache_bg(self):
+        """Quét và gom danh sách liên hệ từ Outlook & lịch sử quét email chạy ngầm"""
+        def _bg():
+            contacts = []
+            seen = set()
+            try:
+                # 1. Lấy từ Outlook
+                if self.config.get("enable_outlook", True):
+                    out_contacts = fetch_outlook_recent_contacts(limit=300)
+                    for c in out_contacts:
+                        val = c.get("filter_val", "").strip()
+                        if val and val.lower() not in seen:
+                            seen.add(val.lower())
+                            contacts.append(c)
+            except Exception:
+                pass
+
+            # 2. Lấy từ SQLite threads.db
+            try:
+                from thread_logic import get_all_threads
+                threads = get_all_threads(limit=300)
+                for t in threads:
+                    s = t.get("last_sender", "").strip()
+                    if s and s.lower() not in seen:
+                        seen.add(s.lower())
+                        contacts.append({"name": s, "email": s if "@" in s else "", "filter_val": s})
+            except Exception:
+                pass
+
+            # 3. Lấy từ summary_cache.json
+            try:
+                cache_file = os.path.join(DATA_DIR, "summary_cache.json")
+                if os.path.exists(cache_file):
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        c_data = json.load(f)
+                    for e_val in c_data.values():
+                        s = e_val.get("sender", "").strip()
+                        if s and s.lower() not in seen:
+                            seen.add(s.lower())
+                            contacts.append({"name": s, "email": s if "@" in s else "", "filter_val": s})
+            except Exception:
+                pass
+
+            self.cached_contacts = contacts
+
+        threading.Thread(target=_bg, daemon=True).start()
+
+    def _on_sender_input_key_release(self, entry):
+        if not hasattr(self, 'sender_suggest_box') or not self.sender_suggest_box:
+            return
+        kw = entry.get().strip().lower()
+        if len(kw) < 1:
+            self._hide_sender_suggestions()
+            return
+
+        matches = []
+        kw_norm = _norm(kw)
+        for c in getattr(self, 'cached_contacts', []):
+            name = c.get("name", "")
+            email = c.get("email", "")
+            val = c.get("filter_val", "")
+            if (kw in name.lower()) or (kw in email.lower()) or (kw in val.lower()) or (kw_norm in _norm(name)) or (kw_norm in _norm(email)):
+                matches.append(c)
+            if len(matches) >= 8:
+                break
+
+        if not matches:
+            self._hide_sender_suggestions()
+            return
+
+        for child in self.sender_suggest_box.winfo_children():
+            child.destroy()
+
+        for c in matches:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            display_text = f"👤 {name} ({email})" if name and email and name != email else f"👤 {c.get('filter_val')}"
+            
+            btn = ctk.CTkButton(
+                self.sender_suggest_box,
+                text=display_text,
+                height=26,
+                fg_color="transparent",
+                hover_color="#E0F2FE",
+                text_color=COLOR_TEXT_MAIN,
+                font=("Segoe UI", 10),
+                anchor="w",
+                command=lambda ct=c: self._select_sender_suggestion(ct, entry)
+            )
+            btn.pack(fill="x", padx=4, pady=1)
+
+        self.sender_suggest_box.pack(fill="x", padx=12, pady=(0, 4), before=self.filter_scroll_frames.get("senders"))
+
+    def _select_sender_suggestion(self, contact, entry):
+        val = contact.get("filter_val") or contact.get("email") or contact.get("name")
+        if val:
+            entry.delete(0, "end")
+            entry.insert(0, val)
+            self.add_filter_item("senders", entry)
+        self._hide_sender_suggestions()
+
+    def _hide_sender_suggestions(self):
+        if hasattr(self, 'sender_suggest_box') and self.sender_suggest_box and self.sender_suggest_box.winfo_exists():
+            self.sender_suggest_box.pack_forget()
 
     def trigger_scan_folders_inline(self):
         if hasattr(self, 'cb_enable_outlook'):
