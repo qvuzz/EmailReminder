@@ -1971,9 +1971,11 @@ class EmailReminderApp(ctk.CTk):
                 suggest_frame = ctk.CTkFrame(top_section, fg_color="#FFFFFF", corner_radius=6, border_width=1, border_color=COLOR_PRIMARY_BLUE)
                 self.sender_suggest_box = suggest_frame
                 self.sender_suggest_entry = entry
+                self.sender_current_matches = []
                 entry.bind("<KeyRelease>", lambda event: self._on_sender_input_key_release(entry))
                 entry.bind("<FocusIn>", lambda event: self._on_sender_input_key_release(entry))
                 entry.bind("<Button-1>", lambda event: self._on_sender_input_key_release(entry))
+                entry.bind("<Tab>", lambda event: self._on_sender_input_tab(event, entry))
 
             scroll_frame = ctk.CTkScrollableFrame(frame, fg_color="#F8FAFC", corner_radius=8)
             scroll_frame.pack(fill="both", expand=True, padx=12, pady=6)
@@ -2094,7 +2096,15 @@ class EmailReminderApp(ctk.CTk):
             self._hide_sender_suggestions()
             return
 
+        self.sender_current_matches = matches
         self._show_contacts_suggestions_ui(matches, entry)
+
+    def _on_sender_input_tab(self, event, entry):
+        matches = getattr(self, 'sender_current_matches', [])
+        if matches:
+            self._select_sender_suggestion(matches[0], entry)
+            return "break"
+        return None
 
     def _show_contacts_suggestions_ui(self, contacts_list, entry):
         if not hasattr(self, 'sender_suggest_box') or not self.sender_suggest_box:
@@ -2106,10 +2116,24 @@ class EmailReminderApp(ctk.CTk):
         for child in self.sender_suggest_box.winfo_children():
             child.destroy()
 
+        self.sender_current_matches = contacts_list
+
         for c in contacts_list:
-            name = c.get("name", "")
-            email = c.get("email", "")
-            display_text = f"👤 {name} ({email})" if name and email and name != email else f"👤 {c.get('filter_val')}"
+            email = (c.get("email") or "").strip()
+            val = (c.get("filter_val") or "").strip()
+            name = (c.get("name") or "").strip()
+
+            if email and "@" in email and not email.startswith("/O="):
+                display_text = f"✉️ {email}"
+            elif val and "<" in val:
+                match = re.search(r'<([^>]+)>', val)
+                display_text = f"✉️ {match.group(1).strip()}" if match else f"👤 {val}"
+            elif "@" in val and not val.startswith("/O="):
+                display_text = f"✉️ {val}"
+            elif name:
+                display_text = f"👤 {name}"
+            else:
+                display_text = f"👤 {val}"
             
             btn = ctk.CTkButton(
                 self.sender_suggest_box,
@@ -2148,6 +2172,7 @@ class EmailReminderApp(ctk.CTk):
         self._hide_sender_suggestions()
 
     def _hide_sender_suggestions(self):
+        self.sender_current_matches = []
         if hasattr(self, 'sender_suggest_box') and self.sender_suggest_box and self.sender_suggest_box.winfo_exists():
             self.sender_suggest_box.pack_forget()
 
@@ -2386,6 +2411,12 @@ class EmailReminderApp(ctk.CTk):
         self._update_group_header_ui(grp_title)
         self._reorder_group_rows(grp_title)
 
+        if hasattr(self, 'entry_folder_search') and self.entry_folder_search:
+            kw = self.entry_folder_search.get().strip()
+            if kw:
+                self.entry_folder_search.delete(0, "end")
+                self.filter_folders_tree_inline()
+
     def on_folder_checkbox_toggled(self, fname, cb_var, grp_title=None):
         current_folders = self.config.get("folders", [])
         if cb_var.get():
@@ -2401,6 +2432,12 @@ class EmailReminderApp(ctk.CTk):
         if grp_title and grp_title in self.inline_folder_groups:
             self._update_group_header_ui(grp_title)
             self._reorder_group_rows(grp_title)
+
+        if hasattr(self, 'entry_folder_search') and self.entry_folder_search:
+            kw = self.entry_folder_search.get().strip()
+            if kw:
+                self.entry_folder_search.delete(0, "end")
+                self.filter_folders_tree_inline()
 
     def select_all_folders_inline(self):
         grouped = self.config.get("scanned_folders_tree", {})
