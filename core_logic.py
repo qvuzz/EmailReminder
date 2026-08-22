@@ -302,20 +302,45 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
 
         log_callback(f"🗂 Outlook thấy {len(all_folders)} thư mục. Danh sách: {', '.join(sorted(all_folders.keys())[:20])}")
 
+        ignored_folder_names = {
+            "deleted items", "thùng rác", "thung rac", "đã xóa", "da xoa", "trash", "bin",
+            "junk email", "thư rác", "thu rac", "spam",
+            "drafts", "thư nháp", "thu nhap", "bản thảo", "ban thao",
+            "outbox", "hộp thư đi", "hop thu di",
+            "sent items", "thư đã gửi", "thu da gui", "sent",
+            "calendar", "lịch", "lich",
+            "contacts", "danh bạ", "danh ba",
+            "journal", "nhật ký", "nhat ky",
+            "notes", "ghi chú", "ghi chu",
+            "tasks", "nhiệm vụ", "nhiem vu",
+            "conversation action settings", "rss feeds", "quick step settings",
+            "sync issues", "conflicts", "local failures", "server failures"
+        }
+
         folders_to_scan = {}
         explicit_folder_ids = set()
         
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         if not target_folders:
-            try:
-                inbox_f = outlook.GetDefaultFolder(6)
-                if inbox_f:
-                    f_dict = {}
-                    add_folder_and_all_subfolders(inbox_f, f_dict)
-                    folders_to_scan.update(f_dict)
-            except Exception:
-                pass
-            log_callback("ℹ️ [Outlook] Cột Folders đang để trống -> Mặc định quét Hộp thư đến (Inbox).")
+            for fn_norm, f_obj in all_folders.items():
+                if fn_norm not in ignored_folder_names and not any(ign in fn_norm for ign in ["deleted", "trash", "junk", "draft", "sent", "calendar", "contacts"]):
+                    try:
+                        if getattr(f_obj, "DefaultItemType", 0) == 0:
+                            f_dict = {}
+                            add_folder_and_all_subfolders(f_obj, f_dict)
+                            folders_to_scan.update(f_dict)
+                    except Exception:
+                        pass
+            if not folders_to_scan:
+                try:
+                    inbox_f = outlook.GetDefaultFolder(6)
+                    if inbox_f:
+                        f_dict = {}
+                        add_folder_and_all_subfolders(inbox_f, f_dict)
+                        folders_to_scan.update(f_dict)
+                except Exception:
+                    pass
+            log_callback(f"ℹ️ [Outlook] Cột Folders đang để trống -> Tự động quét toàn bộ {len(folders_to_scan)} thư mục mail để lọc Senders & Keywords.")
         else:
             for tf in target_folders:
                 if tf in all_folders:

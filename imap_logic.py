@@ -233,8 +233,13 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         folders_to_scan = []
         if not target_folders:
-            log_callback(f"ℹ️ [{acc_name}] Cột Folders đang để trống -> Mặc định quét Hộp thư đến (INBOX).")
-            folders_to_scan.append(("Inbox", "INBOX"))
+            ignored_imap_names = {"trash", "deleted", "junk", "spam", "drafts", "sent", "thung rac", "thư rác", "thư nháp", "thư đã gửi"}
+            for decoded_norm, raw_utf7 in decoded_server_folders.items():
+                if not any(ign in decoded_norm for ign in ignored_imap_names):
+                    folders_to_scan.append((decoded_norm, raw_utf7))
+            if not folders_to_scan:
+                folders_to_scan.append(("Inbox", "INBOX"))
+            log_callback(f"ℹ️ [{acc_name}] Cột Folders đang để trống -> Tự động quét toàn bộ {len(folders_to_scan)} thư mục mail Webmail để lọc Senders & Keywords.")
         else:
             for tf in target_folders:
                 matched = False
