@@ -42,13 +42,15 @@ if %ERRORLEVEL% EQU 0 (
         if not exist dist\models mkdir dist\models
         xcopy /s /y /q models\* dist\models\ >nul 2>nul
     )
-    if exist data\config.json (
-        if not exist dist\data mkdir dist\data
-        copy /y data\config.json dist\data\config.json >nul 2>nul
+    if not exist dist\data mkdir dist\data
+    if not exist dist\data\config.json (
+        if exist data\config.json (
+            copy /y data\config.json dist\data\config.json >nul 2>nul
+        )
     )
     echo.
     echo ====================================================
-    echo  [SUCCESS] BUILD THANH CONG! File tai: dist\Email_Reminder.exe
+    echo  [SUCCESS] BUILD THANH CONG! File tai: dist\eMail_Assistant.exe
     echo ====================================================
 ) else (
     echo.

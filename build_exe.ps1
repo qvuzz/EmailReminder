@@ -51,8 +51,8 @@ $pyinstaller = Join-Path $scriptDir ".venv\Scripts\pyinstaller.exe"
     app.py
 
 if ($LASTEXITCODE -eq 0) {
-    # 4. Tự động chuẩn bị thư mục models và data trong dist\
-    Write-Host "[4/4] Dong bo thu muc models va data sang dist\..." -ForegroundColor Gray
+    # 4. Tự động chuẩn bị thư mục models và bảo toàn dữ liệu data trong dist\
+    Write-Host "[4/4] Kiem tra va bao toan thu muc models & data trong dist\..." -ForegroundColor Gray
     if (Test-Path "models") {
         if (-not (Test-Path "dist\models")) { New-Item -ItemType Directory -Path "dist\models" | Out-Null }
         Get-ChildItem -Path "models" | ForEach-Object {
@@ -62,9 +62,17 @@ if ($LASTEXITCODE -eq 0) {
             }
         }
     }
-    if (Test-Path "data\config.json") {
-        if (-not (Test-Path "dist\data")) { New-Item -ItemType Directory -Path "dist\data" | Out-Null }
-        Copy-Item -Path "data\config.json" -Destination "dist\data\config.json" -Force -ErrorAction SilentlyContinue
+    
+    # Đảm bảo thư mục dist\data tồn tại và KHÔNG bao giờ ghi đè file cấu hình / CSDL của người dùng
+    if (-not (Test-Path "dist\data")) { New-Item -ItemType Directory -Path "dist\data" | Out-Null }
+    if (Test-Path "data") {
+        Get-ChildItem -Path "data" | ForEach-Object {
+            $dest = Join-Path "dist\data" $_.Name
+            # Chỉ copy sang dist nếu file đó chưa tồn tại trong dist\data\
+            if (-not (Test-Path $dest)) {
+                Copy-Item -Path $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     Write-Host ""
