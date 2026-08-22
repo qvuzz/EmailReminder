@@ -233,7 +233,11 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         folders_to_scan = []
         if not target_folders:
-            ignored_imap_names = {"trash", "deleted", "junk", "spam", "drafts", "sent", "thung rac", "thư rác", "thư nháp", "thư đã gửi"}
+            ignored_imap_names = {
+                "trash", "deleted", "junk", "spam", "drafts", "sent", 
+                "archive", "archives", "archieve", "lưu trữ", "luu tru",
+                "thung rac", "thùng rác", "thư rác", "thư nháp", "thư đã gửi"
+            }
             for decoded_norm, raw_utf7 in decoded_server_folders.items():
                 if not any(ign in decoded_norm for ign in ignored_imap_names):
                     folders_to_scan.append((decoded_norm, raw_utf7))

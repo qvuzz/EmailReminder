@@ -62,9 +62,13 @@ def add_folder_and_all_subfolders(folder, target_dict):
         pass
 
 def get_all_folders_recursive(folder, folder_dict):
-    """Đệ quy quét toàn bộ cây thư mục Outlook"""
+    """Đệ quy quét toàn bộ cây thư mục Outlook (tự động bỏ qua các thư mục lưu trữ Archive)"""
     try:
-        folder_dict[_norm(folder.Name)] = folder
+        norm_name = _norm(folder.Name)
+        # Bỏ qua nếu là thư mục lưu trữ Archive
+        if any(arc in norm_name for arc in ["archive", "archives", "archieve", "lưu trữ", "luu tru"]):
+            return
+        folder_dict[norm_name] = folder
         for subfolder in folder.Folders:
             get_all_folders_recursive(subfolder, folder_dict)
     except Exception:
@@ -295,7 +299,8 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
 
         for acc in outlook.Folders:
             try:
-                if acc.Name.lower() != "archives":
+                acc_norm = _norm(acc.Name)
+                if not any(arc in acc_norm for arc in ["archive", "archives", "archieve", "lưu trữ", "luu tru"]):
                     get_all_folders_recursive(acc, all_folders)
             except Exception:
                 pass
@@ -313,6 +318,7 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
             "journal", "nhật ký", "nhat ky",
             "notes", "ghi chú", "ghi chu",
             "tasks", "nhiệm vụ", "nhiem vu",
+            "archive", "archives", "archieve", "lưu trữ", "luu tru", "archive folders", "online archive",
             "conversation action settings", "rss feeds", "quick step settings",
             "sync issues", "conflicts", "local failures", "server failures"
         }
@@ -323,7 +329,7 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
         target_folders = [_norm(f) for f in config.get("folders", []) if f.strip()]
         if not target_folders:
             for fn_norm, f_obj in all_folders.items():
-                if fn_norm not in ignored_folder_names and not any(ign in fn_norm for ign in ["deleted", "trash", "junk", "draft", "sent", "calendar", "contacts"]):
+                if fn_norm not in ignored_folder_names and not any(ign in fn_norm for ign in ["deleted", "trash", "junk", "draft", "sent", "calendar", "contacts", "archive", "archieve", "lưu trữ", "luu tru"]):
                     try:
                         if getattr(f_obj, "DefaultItemType", 0) == 0:
                             f_dict = {}
@@ -710,6 +716,10 @@ def scan_all_available_folders(config, log_callback=None):
             
             for acc in outlook.Folders:
                 acc_name = acc.Name
+                acc_norm = _norm(acc_name)
+                # Bỏ qua tài khoản / kho lưu trữ Archives
+                if any(arc in acc_norm for arc in ["archive", "archives", "archieve", "lưu trữ", "luu tru"]):
+                    continue
                 store_folders = {}
                 try:
                     get_all_folders_recursive(acc, store_folders)
