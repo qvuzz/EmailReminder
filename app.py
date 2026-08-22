@@ -2654,7 +2654,7 @@ class EmailReminderApp(ctk.CTk):
         scroll.pack(fill="both", expand=True)
 
         # 1. NGUỒN QUÉT EMAIL
-        self.sec1_frame = self._create_settings_section(scroll, "📡 1. Nguồn Quét Email")
+        self.sec1_frame = self._create_settings_section(scroll, "📡 Nguồn Quét Email")
         
         source_cb_row = ctk.CTkFrame(self.sec1_frame, fg_color="transparent")
         source_cb_row.pack(anchor="w", padx=16, pady=(0, 10))
@@ -2686,7 +2686,7 @@ class EmailReminderApp(ctk.CTk):
             self.cb_enable_imap.select()
 
         # 2. QUẢN LÝ ĐA TÀI KHOẢN WEBMAIL
-        self.imap_config_frame = self._create_settings_section(scroll, "🌐 2. Quản Lý Tài Khoản Webmail / IMAP")
+        self.imap_config_frame = self._create_settings_section(scroll, "🌐 Quản Lý Tài Khoản Webmail / IMAP")
         
         imap_header_row = ctk.CTkFrame(self.imap_config_frame, fg_color="transparent")
         imap_header_row.pack(fill="x", padx=16, pady=(0, 8))
@@ -2721,7 +2721,7 @@ class EmailReminderApp(ctk.CTk):
             self.imap_config_frame.pack_forget()
 
         # 3. CẤU HÌNH AI TÓM TẮT
-        sec3 = self._create_settings_section(scroll, "🤖 3. Cấu Hình Trí Tuệ Nhân Tạo (AI Engine)")
+        sec3 = self._create_settings_section(scroll, "🤖 Cấu Hình Trí Tuệ Nhân Tạo (AI Engine)")
         
         ai_row = ctk.CTkFrame(sec3, fg_color="transparent")
         ai_row.pack(fill="x", padx=16, pady=(0, 6))
@@ -2774,7 +2774,7 @@ class EmailReminderApp(ctk.CTk):
         self.on_ai_engine_changed(curr_ai)
 
         # 4. KÊNH THÔNG BÁO (TELEGRAM & DESKTOP SYSTEM TRAY)
-        sec4 = self._create_settings_section(scroll, "🔔 4. Kênh Nhận Thông Báo Email Mới")
+        sec4 = self._create_settings_section(scroll, "🔔 Kênh Nhận Thông Báo Email Mới")
 
         self.cb_enable_tray_notify = ctk.CTkCheckBox(
             sec4,
@@ -2852,7 +2852,7 @@ class EmailReminderApp(ctk.CTk):
         self.btn_test_popup.pack(side="left")
 
         # 5. CHU KỲ QUÉT & NÚT LƯU
-        sec5 = self._create_settings_section(scroll, "⏱️ 5. Chu Kỳ Quét & Lưu Cấu Hình")
+        sec5 = self._create_settings_section(scroll, "⏱️ Chu Kỳ Quét & Lưu Cấu Hình")
 
         interval_row = ctk.CTkFrame(sec5, fg_color="transparent")
         interval_row.pack(anchor="w", padx=16, pady=(0, 12))
