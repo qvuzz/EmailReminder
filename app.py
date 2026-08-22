@@ -1616,22 +1616,7 @@ class EmailReminderApp(ctk.CTk):
             font=("Segoe UI", 11),
             command=self.refresh_threads_list
         )
-        btn_refresh.pack(side="right", padx=(0, 8))
-
-        btn_clear_threads = ctk.CTkButton(
-            inner,
-            text="🗑️ Xóa tất cả",
-            width=105,
-            height=32,
-            fg_color="#FFFFFF",
-            border_width=1,
-            border_color="#CBD5E1",
-            text_color="#475569",
-            hover_color="#F1F5F9",
-            font=("Segoe UI", 11),
-            command=self.clear_all_threads_ui
-        )
-        btn_clear_threads.pack(side="right")
+        btn_refresh.pack(side="right")
 
         list_container = ctk.CTkFrame(page, fg_color=COLOR_CARD_WHITE, corner_radius=10, border_width=1, border_color=COLOR_BORDER)
         list_container.pack(fill="both", expand=True)
@@ -1854,13 +1839,6 @@ class EmailReminderApp(ctk.CTk):
         threading.Thread(target=_bg, daemon=True).start()
         self.refresh_threads_list()
         self.log(f"🗑️ Đang chuyển tất cả email trong chuỗi ID {thread_id} vào thùng rác...")
-
-    def clear_all_threads_ui(self):
-        if messagebox.askyesno("Xác nhận", "Bạn có chắc chắn muốn xóa toàn bộ lịch sử các chuỗi hội thoại email?", parent=self):
-            from thread_logic import clear_all_threads
-            clear_all_threads()
-            self.refresh_threads_list()
-            self.log("Đã xóa sạch toàn bộ chuỗi hội thoại trong threads.db.")
 
     # =========================================================================
     # TRANG 4: ⚡ RULES (BỘ LỌC)
