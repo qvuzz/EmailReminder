@@ -291,6 +291,63 @@ def clear_all_threads():
         conn.commit()
 
 
+def remove_email_from_threads(email, log_callback=None):
+    """Gỡ bỏ 1 email khỏi các Thread trong threads.db và giảm email_count tương ứng"""
+    if not email:
+        return
+    import json
+    init_thread_db()
+    
+    del_entry_id = email.get("entry_id")
+    del_msg_id = email.get("msg_id")
+    del_subj = email.get("subject", "")
+    del_sender = email.get("sender", "")
+    del_time = email.get("time", "")
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, thread_key, subject, email_items, email_count FROM email_threads")
+        rows = cursor.fetchall()
+        for r in rows:
+            tid = r["id"]
+            items_str = r["email_items"] or "[]"
+            try:
+                items = json.loads(items_str)
+            except Exception:
+                items = []
+
+            new_items = []
+            changed = False
+            for it in items:
+                match = False
+                if del_entry_id and it.get("entry_id") == del_entry_id:
+                    match = True
+                elif del_msg_id and it.get("msg_id") == del_msg_id:
+                    match = True
+                elif it.get("subject") == del_subj and it.get("sender") == del_sender and it.get("time") == del_time:
+                    match = True
+
+                if match:
+                    changed = True
+                else:
+                    new_items.append(it)
+
+            if changed:
+                if len(new_items) == 0:
+                    cursor.execute("DELETE FROM email_threads WHERE id = ?", (tid,))
+                    if log_callback:
+                        log_callback(f"🧵 Đã tự động xóa chuỗi ID {tid} vì không còn email nào.")
+                else:
+                    cursor.execute("""
+                        UPDATE email_threads 
+                        SET email_items = ?, email_count = ?
+                        WHERE id = ?
+                    """, (json.dumps(new_items, ensure_ascii=False), len(new_items), tid))
+                    if log_callback:
+                        log_callback(f"🧵 Đã cập nhật chuỗi '{r['subject']}': còn {len(new_items)} email.")
+        conn.commit()
+
+
 def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None):
     """
     Phân loại và điều hướng danh sách email vừa quét:
@@ -354,31 +411,12 @@ def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None
 
         # Ngược lại: Đây chính xác là một Thread!
         if log_callback:
-            log_callback(f"🧵 Đang xử lý chuỗi hội thoại ({len(emails_list)} email mới): '{cleaned_subj}'")
+            log_callback(f"🧵 Đang xử lý chuỗi hội thoại ({len(emails_list)} email): '{cleaned_subj}'")
 
         old_count = existing["email_count"] if existing else 0
         old_summary = existing["current_summary"] if existing else ""
-        new_count = old_count + len(emails_list)
 
-        ai_type = config.get("ai_engine", "Offline")
-        api_key = config.get("api_key", "")
-
-        # Thực hiện tóm tắt cuốn chiếu tự động
-        updated_summary = summarize_thread_rolling_with_ai(
-            ai_type=ai_type,
-            api_key=api_key,
-            subject=cleaned_subj,
-            current_summary=old_summary,
-            new_emails=emails_list,
-            log_callback=log_callback
-        )
-
-        last_email = emails_list[-1]
-        last_sender = last_email.get("sender", "")
-        last_time = last_email.get("time", datetime.now().strftime("%H:%M %d/%m/%Y"))
-        account_name = last_email.get("account_name", "")
-        folder = last_email.get("folder", "")
-
+        # Lấy danh sách email cũ đã lưu trong DB
         old_items = []
         if existing and existing.get("email_items"):
             try:
@@ -386,7 +424,51 @@ def process_scanned_emails_for_threads(scanned_emails, config, log_callback=None
                 old_items = json.loads(existing["email_items"])
             except Exception:
                 old_items = []
-        combined_items = old_items + emails_list
+
+        def _get_item_uid(it):
+            return it.get("entry_id") or it.get("msg_id") or f"{it.get('subject')}_{it.get('sender')}_{it.get('time')}"
+
+        # Tìm các email THỰC SỰ MỚI (chưa từng được lưu trong Thread này)
+        existing_uids = {_get_item_uid(it) for it in old_items if _get_item_uid(it)}
+        truly_new_emails = [it for it in emails_list if _get_item_uid(it) not in existing_uids]
+
+        # Khử trùng lặp danh sách tổng các email thuộc thread
+        seen_uids = set()
+        combined_items = []
+        for it in old_items + emails_list:
+            uid = _get_item_uid(it)
+            if uid and uid not in seen_uids:
+                seen_uids.add(uid)
+                combined_items.append(it)
+            elif not uid:
+                combined_items.append(it)
+
+        new_count = len(combined_items)
+        if new_count == 0:
+            new_count = 1
+
+        # Nếu không có email nào mới thật sự (chỉ là đợt quét lại các email chưa đọc) -> Giữ nguyên tóm tắt cũ
+        if not truly_new_emails and existing and existing.get("current_summary"):
+            updated_summary = existing["current_summary"]
+        else:
+            # Thực hiện tóm tắt cuốn chiếu tự động
+            ai_type = config.get("ai_engine", "Offline")
+            api_key = config.get("api_key", "")
+            target_for_ai = truly_new_emails if truly_new_emails else emails_list
+            updated_summary = summarize_thread_rolling_with_ai(
+                ai_type=ai_type,
+                api_key=api_key,
+                subject=cleaned_subj,
+                current_summary=old_summary,
+                new_emails=target_for_ai,
+                log_callback=log_callback
+            )
+
+        last_email = combined_items[-1] if combined_items else emails_list[-1]
+        last_sender = last_email.get("sender", "")
+        last_time = last_email.get("time", datetime.now().strftime("%H:%M %d/%m/%Y"))
+        account_name = last_email.get("account_name", "")
+        folder = last_email.get("folder", "")
 
         # Lưu/Cập nhật vào SQLite threads.db
         save_or_update_thread(

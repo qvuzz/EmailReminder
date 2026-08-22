@@ -1380,6 +1380,10 @@ class EmailReminderApp(ctk.CTk):
 
         def _bg_del():
             try:
+                # Đồng bộ gỡ email này khỏi các Thread trong threads.db
+                from thread_logic import remove_email_from_threads
+                remove_email_from_threads(email, log_callback=self.log)
+
                 acc_name = email.get("account_name", "")
                 entry_id = email.get("entry_id")
                 if ("Outlook" in acc_name or entry_id) and entry_id:
@@ -1411,6 +1415,8 @@ class EmailReminderApp(ctk.CTk):
                         card_widget.destroy()
                     else:
                         self.filter_emails_history()
+                    if hasattr(self, 'refresh_threads_list'):
+                        self.refresh_threads_list()
                 self.after(0, _ui_done)
 
         threading.Thread(target=_bg_del, daemon=True).start()
