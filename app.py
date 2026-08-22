@@ -3204,10 +3204,26 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
 - Nút Mở Mail (✉️): Mở trực tiếp email gốc trong Microsoft Outlook hoặc Webmail.
 - Chuột phải icon khay hệ thống: Chọn '📬 Xem thông báo email mới' để mở lại bất cứ lúc nào."""
         self._create_help_textbox(c4, txt4)
+
+        # Card 5: About App & Release Info
+        c5 = self._create_settings_section(scroll, "ℹ️ 5. Giới Thiệu Ứng Dụng & Bản Quyền (About eMail Assistant)")
+        txt5 = """Ứng dụng: eMail Assistant (VNPT AI Assistant)
+Phiên bản: Version 1.6 (Bản phát hành chính thức 2026)
+Bản quyền & Tác giả: © 2026 quangvu@vnpt - VNPT
+
+Giới thiệu chung:
+eMail Assistant là giải pháp phần mềm trợ lý thông minh được phát triển nhằm tối ưu hóa hiệu suất xử lý thư điện tử cho cán bộ và chuyên viên:
+• Theo dõi đa nguồn: Quét tự động và đồng thời hòm thư Microsoft Outlook (Desktop MAPI) và đa tài khoản Webmail máy chủ (giao thức IMAP bảo mật SSL/TLS).
+• Tóm tắt thông minh bằng AI: Tự động tổng hợp và trích xuất hành động chính (Action Items) từ nội dung email bằng mô hình AI Offline (bảo mật 100% không cần Internet) hoặc AI Cloud thế hệ mới (Gemini, Groq, DeepSeek, OpenAI).
+• Quản lý chuỗi hội thoại (Email Threads): Thuật toán chuẩn hóa tiêu đề và tóm tắt cuốn chiếu tự động toàn bộ diễn biến chuỗi thư phản hồi qua lại trên cơ sở dữ liệu SQLite độc lập.
+• Tương tác 2 chiều Telegram: Nhận thông báo tức thì trên điện thoại và hỗ trợ nút bấm tương tác Đánh dấu đã đọc đồng bộ ngược về máy tính.
+• Giao diện Modern SaaS: Trực quan, chuẩn nhận diện VNPT, tích hợp hệ thống Icon Vector High-DPI sắc nét và cửa sổ thông báo nổi (Floating Card) tiện lợi."""
+        self._create_help_textbox(c5, txt5, height=225)
+
         self.bind_smooth_scroll(scroll)
 
-    def _create_help_textbox(self, parent, content):
-        tb = ctk.CTkTextbox(parent, height=135, font=("Segoe UI", 11), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=8)
+    def _create_help_textbox(self, parent, content, height=135):
+        tb = ctk.CTkTextbox(parent, height=height, font=("Segoe UI", 11), fg_color="#F8FAFC", border_width=1, border_color=COLOR_BORDER, corner_radius=8)
         tb.pack(fill="x", padx=16, pady=(0, 12))
         tb.insert("1.0", content)
         tb.configure(state="disabled")
