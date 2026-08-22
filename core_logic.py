@@ -322,7 +322,19 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
             log_callback("ℹ️ [Outlook] Không tìm thấy thư mục nào khớp trong danh sách đã chọn -> Bỏ qua.")
             return []
 
-        target_senders = [_norm(s) for s in config.get("senders", []) if s.strip()]
+        target_senders = []
+        for s in config.get("senders", []):
+            if not s or not s.strip():
+                continue
+            match = re.search(r'<([^>]+)>', s)
+            if match:
+                email_p = match.group(1).strip()
+                name_p = s[:match.start()].strip()
+                if email_p: target_senders.append(_norm(email_p))
+                if name_p: target_senders.append(_norm(name_p))
+            else:
+                target_senders.append(_norm(s))
+
         target_cc = [_norm(c) for c in config.get("cc_emails", []) if c.strip()]
         target_keywords = [_norm(k) for k in config.get("keywords", []) if k.strip()]
         
@@ -400,7 +412,13 @@ def scan_emails(config, log_callback, on_emails_found_callback=None):
                     subject_norm = _norm(subject_raw)
                     body_norm = _norm(body_raw)
 
-                    matched_sender = any(s in sender_email_norm or s in sender_name_norm for s in target_senders) if target_senders else False
+                    matched_sender = any(
+                        (s and s in sender_email_norm) or 
+                        (s and s in sender_name_norm) or 
+                        (sender_email_norm and sender_email_norm in s) or 
+                        (sender_name_norm and sender_name_norm in s)
+                        for s in target_senders if s
+                    ) if target_senders else False
                     matched_cc = any(c in cc_norm for c in target_cc) if target_cc else False
                     matched_keyword = any(k in subject_norm or k in body_norm for k in target_keywords) if target_keywords else False
 

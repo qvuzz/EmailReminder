@@ -2122,10 +2122,23 @@ class EmailReminderApp(ctk.CTk):
         self.sender_suggest_box.pack(fill="x", pady=(4, 0))
 
     def _select_sender_suggestion(self, contact, entry):
-        val = contact.get("filter_val") or contact.get("email") or contact.get("name")
-        if val:
+        email_clean = (contact.get("email") or "").strip()
+        name_clean = (contact.get("name") or "").strip()
+        val = (contact.get("filter_val") or "").strip()
+
+        if email_clean and "@" in email_clean and not email_clean.startswith("/O="):
+            chosen = email_clean
+        elif val:
+            match = re.search(r'<([^>]+)>', val)
+            chosen = match.group(1).strip() if match else val
+        elif name_clean:
+            chosen = name_clean
+        else:
+            chosen = val
+
+        if chosen:
             entry.delete(0, "end")
-            entry.insert(0, val)
+            entry.insert(0, chosen)
             self.add_filter_item("senders", entry)
         self._hide_sender_suggestions()
 

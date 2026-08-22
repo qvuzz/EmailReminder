@@ -254,7 +254,19 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
                     encoded_tf = encode_utf7_imap(tf)
                     folders_to_scan.append((tf, encoded_tf))
 
-        target_senders = [_norm(s) for s in config.get("senders", []) if s.strip()]
+        target_senders = []
+        for s in config.get("senders", []):
+            if not s or not s.strip():
+                continue
+            match = re.search(r'<([^>]+)>', s)
+            if match:
+                email_p = match.group(1).strip()
+                name_p = s[:match.start()].strip()
+                if email_p: target_senders.append(_norm(email_p))
+                if name_p: target_senders.append(_norm(name_p))
+            else:
+                target_senders.append(_norm(s))
+
         target_cc = [_norm(c) for c in config.get("cc_emails", []) if c.strip()]
         target_keywords = [_norm(k) for k in config.get("keywords", []) if k.strip()]
         has_any_filter = bool(target_folders or target_senders or target_cc or target_keywords)
@@ -349,7 +361,13 @@ def scan_single_imap_account(acc, config, cache, seen_msg_ids, log_callback):
                         cc_norm = _norm(f"{to_header} {cc_header}")
                         subject_norm = _norm(subject)
 
-                        matched_sender = any(s in sender_email_norm or s in sender_name_norm for s in target_senders) if target_senders else False
+                        matched_sender = any(
+                            (s and s in sender_email_norm) or 
+                            (s and s in sender_name_norm) or 
+                            (sender_email_norm and sender_email_norm in s) or 
+                            (sender_name_norm and sender_name_norm in s)
+                            for s in target_senders if s
+                        ) if target_senders else False
                         matched_cc = any(c in cc_norm for c in target_cc) if target_cc else False
                         matched_keyword_subject = any(k in subject_norm for k in target_keywords) if target_keywords else False
                         is_in_target_folder = any(tf == _norm(friendly_name) for tf in target_folders)
