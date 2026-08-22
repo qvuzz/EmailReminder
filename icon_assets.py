@@ -5,6 +5,7 @@ Renders Lucide-style modern minimalist 2px-stroke icons with anti-aliasing via P
 
 from PIL import Image, ImageDraw
 import customtkinter as ctk
+import math
 
 _ICON_CACHE = {}
 
@@ -59,31 +60,53 @@ def _draw_icon(name: str, size: int, color_hex: str) -> Image.Image:
         draw.line([x1, y1, x2, y2], fill=col, width=int(w * 1.2), joint="round")
 
     elif name == "refresh":
-        # 2 mũi tên xoay tròn (Refresh-cw)
-        box = [pad, pad, s - pad, s - pad]
-        draw.arc(box, start=30, end=150, fill=col, width=w)
-        draw.arc(box, start=210, end=330, fill=col, width=w)
-        # Đầu mũi tên 1 (trên)
-        draw.polygon([(s - pad - int(3*scale), pad - int(2*scale)), 
-                      (s - pad + int(5*scale), pad + int(1*scale)), 
-                      (s - pad - int(1*scale), pad + int(7*scale))], fill=col)
-        # Đầu mũi tên 2 (dưới)
-        draw.polygon([(pad + int(3*scale), s - pad + int(2*scale)), 
-                      (pad - int(5*scale), s - pad - int(1*scale)), 
-                      (pad + int(1*scale), s - pad - int(7*scale))], fill=col)
+        # Lucide refresh-cw: 2 cung tròn đối xứng với đầu mũi tên chevron sắc nét
+        cx, cy = s // 2, s // 2
+        r = int(s * 0.34)
+        box = [cx - r, cy - r, cx + r, cy + r]
+        # Cung 1: từ trên phải (25°) đến dưới trái (155°)
+        draw.arc(box, start=25, end=155, fill=col, width=w)
+        # Đầu mũi tên 1 (tại 25°)
+        ax1 = int(cx + r * math.cos(math.radians(25)))
+        ay1 = int(cy - r * math.sin(math.radians(25)))
+        d = int(3.6 * scale)
+        draw.line([(ax1 + d, ay1 - int(1*scale)), (ax1, ay1), (ax1 - int(1*scale), ay1 - d)], fill=col, width=w, joint="round")
+        
+        # Cung 2: từ dưới trái (205°) đến trên phải (335°)
+        draw.arc(box, start=205, end=335, fill=col, width=w)
+        # Đầu mũi tên 2 (tại 205°)
+        ax2 = int(cx + r * math.cos(math.radians(205)))
+        ay2 = int(cy - r * math.sin(math.radians(205)))
+        draw.line([(ax2 - d, ay2 + int(1*scale)), (ax2, ay2), (ax2 + int(1*scale), ay2 + d)], fill=col, width=w, joint="round")
 
-    elif name == "sort":
-        # 2 mũi tên lên xuống đối xứng
-        mid_l = int(s * 0.38)
-        mid_r = int(s * 0.62)
-        top = pad + int(2*scale)
-        bot = s - pad - int(2*scale)
-        # Mũi tên lên
-        draw.line([(mid_l, bot), (mid_l, top)], fill=col, width=w)
-        draw.line([(mid_l - int(4*scale), top + int(4*scale)), (mid_l, top), (mid_l + int(4*scale), top + int(4*scale))], fill=col, width=w, joint="round")
-        # Mũi tên xuống
-        draw.line([(mid_r, top), (mid_r, bot)], fill=col, width=w)
-        draw.line([(mid_r - int(4*scale), bot - int(4*scale)), (mid_r, bot), (mid_r + int(4*scale), bot - int(4*scale))], fill=col, width=w, joint="round")
+    elif name in ("sort", "sort_desc"):
+        # Lucide arrow-down-wide-narrow: Mũi tên dọc thanh lịch + 3 vạch độ dài giảm dần
+        ax = int(s * 0.28)
+        top_y = int(s * 0.22)
+        bot_y = int(s * 0.78)
+        arr_d = int(3.5 * scale)
+        draw.line([(ax, top_y), (ax, bot_y)], fill=col, width=w)
+        draw.line([(ax - arr_d, bot_y - arr_d), (ax, bot_y), (ax + arr_d, bot_y - arr_d)], fill=col, width=w, joint="round")
+        
+        # 3 vạch ngang sắp xếp
+        bx1 = int(s * 0.48)
+        draw.line([(bx1, int(s * 0.28)), (int(s * 0.88), int(s * 0.28))], fill=col, width=w, joint="round")
+        draw.line([(bx1, int(s * 0.50)), (int(s * 0.75), int(s * 0.50))], fill=col, width=w, joint="round")
+        draw.line([(bx1, int(s * 0.72)), (int(s * 0.62), int(s * 0.72))], fill=col, width=w, joint="round")
+
+    elif name == "sort_asc":
+        # Lucide arrow-up-narrow-wide: Mũi tên lên + 3 vạch tăng dần
+        ax = int(s * 0.28)
+        top_y = int(s * 0.22)
+        bot_y = int(s * 0.78)
+        arr_d = int(3.5 * scale)
+        draw.line([(ax, bot_y), (ax, top_y)], fill=col, width=w)
+        draw.line([(ax - arr_d, top_y + arr_d), (ax, top_y), (ax + arr_d, top_y + arr_d)], fill=col, width=w, joint="round")
+        
+        bx1 = int(s * 0.48)
+        draw.line([(bx1, int(s * 0.28)), (int(s * 0.62), int(s * 0.28))], fill=col, width=w, joint="round")
+        draw.line([(bx1, int(s * 0.50)), (int(s * 0.75), int(s * 0.50))], fill=col, width=w, joint="round")
+        draw.line([(bx1, int(s * 0.72)), (int(s * 0.88), int(s * 0.72))], fill=col, width=w, joint="round")
 
     elif name in ("mail", "mail_open"):
         # Phong bì thư

@@ -631,28 +631,32 @@ class NotificationPopup(ctk.CTkToplevel):
         if not self.emails:
             self.close_popup()
             return
-        removed = self.emails.pop(self.current_idx)
+        
+        target = self.emails[self.current_idx]
+        ok = False
         
         # Nếu là thread: xóa toàn bộ chuỗi trong DB và chuyển tất cả các email vào Thùng rác
-        if removed.get("is_thread") and removed.get("thread_key"):
+        if target.get("is_thread") and target.get("thread_key"):
             try:
                 from thread_logic import get_thread_by_key
-                t = get_thread_by_key(removed.get("thread_key"))
+                t = get_thread_by_key(target.get("thread_key"))
                 if t and t.get("id") and hasattr(self.parent, "delete_single_thread_ui"):
-                    self.parent.delete_single_thread_ui(t["id"])
+                    ok = self.parent.delete_single_thread_ui(t["id"], t)
+                elif hasattr(self.parent, "delete_single_thread_ui"):
+                    ok = self.parent.delete_single_thread_ui(target.get("id"), target)
             except Exception:
                 pass
         else:
             # Nếu là email đơn lẻ: xóa khỏi danh sách và chuyển vào Thùng rác trên server
             if hasattr(self.parent, "delete_single_email_from_history"):
-                self.parent.delete_single_email_from_history(removed)
+                ok = self.parent.delete_single_email_from_history(target)
 
-        if hasattr(self.parent, "latest_notifications"):
-            if removed in self.parent.latest_notifications:
-                self.parent.latest_notifications.remove(removed)
-                if hasattr(self.parent, "filter_emails_history"):
-                    self.parent.filter_emails_history()
-        
+        if not ok:
+            return
+
+        if target in self.emails:
+            self.emails.remove(target)
+
         if not self.emails:
             self.close_popup()
             return
@@ -1344,7 +1348,15 @@ class EmailReminderApp(ctk.CTk):
     def delete_single_email_from_history(self, email):
         """Xóa 1 email khỏi danh sách lịch sử và chuyển trực tiếp vào Thùng rác trên Outlook/Webmail"""
         if not email:
-            return
+            return False
+
+        subj = email.get('subject', '(Không tiêu đề)')
+        if not messagebox.askyesno(
+            "Xác nhận xóa Email",
+            f"Bạn có chắc chắn muốn chuyển email này vào Thùng rác (Deleted Items / Trash)?\n\n📧 Tiêu đề: {subj}",
+            parent=self
+        ):
+            return False
 
         if email in self.latest_notifications:
             self.latest_notifications.remove(email)
@@ -1387,6 +1399,7 @@ class EmailReminderApp(ctk.CTk):
 
         threading.Thread(target=_bg_del, daemon=True).start()
         self.log(f"🗑️ Đang chuyển email vào Thùng rác: '{email.get('subject', '')}'")
+        return True
 
     def mark_email_read(self, email):
         """Đánh dấu đã đọc trên Outlook hoặc Webmail/IMAP và loại bỏ khỏi danh sách thông báo"""
@@ -1582,11 +1595,11 @@ class EmailReminderApp(ctk.CTk):
         if self.email_sort_order == "newest":
             self.email_sort_order = "oldest"
             if hasattr(self, "btn_email_sort"):
-                self.btn_email_sort.configure(text=" Cũ nhất")
+                self.btn_email_sort.configure(text=" Cũ nhất", image=get_icon("sort_asc", 14, COLOR_PRIMARY_BLUE))
         else:
             self.email_sort_order = "newest"
             if hasattr(self, "btn_email_sort"):
-                self.btn_email_sort.configure(text=" Mới nhất")
+                self.btn_email_sort.configure(text=" Mới nhất", image=get_icon("sort_desc", 14, COLOR_PRIMARY_BLUE))
         self.filter_emails_history()
 
     def filter_emails_history(self):
@@ -1639,7 +1652,7 @@ class EmailReminderApp(ctk.CTk):
 
         ctk.CTkLabel(
             inner, 
-            text=" Tìm kiếm chuỗi:", 
+            text=" Tìm kiếm:", 
             image=get_icon("search", 15, COLOR_PRIMARY_BLUE), 
             compound="left",
             font=("Segoe UI", 12, "bold"), 
@@ -1695,11 +1708,11 @@ class EmailReminderApp(ctk.CTk):
         if getattr(self, "thread_sort_order", "newest") == "newest":
             self.thread_sort_order = "oldest"
             if hasattr(self, "btn_thread_sort"):
-                self.btn_thread_sort.configure(text=" Cũ nhất")
+                self.btn_thread_sort.configure(text=" Cũ nhất", image=get_icon("sort_asc", 14, COLOR_PRIMARY_BLUE))
         else:
             self.thread_sort_order = "newest"
             if hasattr(self, "btn_thread_sort"):
-                self.btn_thread_sort.configure(text=" Mới nhất")
+                self.btn_thread_sort.configure(text=" Mới nhất", image=get_icon("sort_desc", 14, COLOR_PRIMARY_BLUE))
         self.refresh_threads_list()
 
     def refresh_threads_list(self):
@@ -1824,7 +1837,7 @@ class EmailReminderApp(ctk.CTk):
 
         btn_del = ctk.CTkButton(
             btn_row,
-            text=" Xóa chuỗi",
+            text=" Xóa Thread",
             image=get_icon("trash", 13, COLOR_RED_BTN),
             compound="left",
             width=90,
@@ -1835,7 +1848,7 @@ class EmailReminderApp(ctk.CTk):
             text_color=COLOR_RED_BTN,
             hover_color="#FEF2F2",
             font=("Segoe UI", 10, "bold"),
-            command=lambda tid=thread_item.get("id"): self.delete_single_thread_ui(tid)
+            command=lambda t=thread_item: self.delete_single_thread_ui(t.get("id"), t)
         )
         btn_del.pack(side="right")
 
@@ -1902,8 +1915,22 @@ class EmailReminderApp(ctk.CTk):
         except Exception:
             pass
 
-    def delete_single_thread_ui(self, thread_id):
+    def delete_single_thread_ui(self, thread_id, thread_item=None):
         """Xóa chuỗi trong DB và chuyển tất cả các email trong chuỗi vào thùng rác trên server"""
+        if not thread_id:
+            return False
+
+        subj = thread_item.get('subject', '') if thread_item else f"ID {thread_id}"
+        count = thread_item.get('email_count', '') if thread_item else ''
+        count_str = f" ({count} thư)" if count else ""
+
+        if not messagebox.askyesno(
+            "Xác nhận xóa Chuỗi Email",
+            f"Bạn có chắc chắn muốn xóa chuỗi hội thoại này và chuyển TOÀN BỘ các email trong chuỗi vào Thùng rác?\n\n🧵 Chuỗi: {subj}{count_str}",
+            parent=self
+        ):
+            return False
+
         from thread_logic import delete_thread_with_emails
         def _bg():
             delete_thread_with_emails(thread_id, config=self.config, log_callback=self.log)
@@ -1911,7 +1938,8 @@ class EmailReminderApp(ctk.CTk):
 
         threading.Thread(target=_bg, daemon=True).start()
         self.refresh_threads_list()
-        self.log(f"🗑️ Đang chuyển tất cả email trong chuỗi ID {thread_id} vào thùng rác...")
+        self.log(f"🗑️ Đang chuyển tất cả email trong chuỗi '{subj}' vào thùng rác...")
+        return True
 
     # =========================================================================
     # TRANG 4: ⚡ RULES (BỘ LỌC)
