@@ -3070,8 +3070,8 @@ class EmailReminderApp(ctk.CTk):
 
         def _test_tele():
             try:
-                msg = "🔔 <b>Test thành công!</b> Ứng dụng eMail Smart Assistant v1.3 đã kết nối được với Telegram của bạn."
-                msg_plain = "🔔 Test thành công! Ứng dụng eMail Smart Assistant v1.3 đã kết nối được với Telegram của bạn."
+                msg = "🔔 <b>Test thành công!</b> Ứng dụng eMail Assistant v1.6 (VNPT AI) đã kết nối được với Telegram của bạn."
+                msg_plain = "🔔 Test thành công! Ứng dụng eMail Assistant v1.6 (VNPT AI) đã kết nối được với Telegram của bạn."
                 ok = send_telegram(token, chat_id, msg, msg_plain, log_callback=lambda m: self.after(0, self.log, m))
                 if ok:
                     self.after(0, self.log, "✅ Gửi tin nhắn thử nghiệm thành công! Hãy kiểm tra điện thoại.")
@@ -3621,7 +3621,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
                 pystray.Menu.SEPARATOR,
                 item("❌ Thoát ứng dụng", self.quit_app)
             )
-            self.tray_icon = pystray.Icon("eMailAssistant", image, "eMail Assistant v1.4", menu)
+            self.tray_icon = pystray.Icon("eMailAssistant", image, "eMail Assistant v1.6 - VNPT AI", menu)
             self.tray_icon.run_detached()
         except Exception as e:
             print(f"Lỗi khởi tạo Tray Icon: {e}")
@@ -3631,7 +3631,7 @@ Sau khi có key, hãy chọn đúng hãng AI tương ứng và dán key vào ô 
             self.withdraw()
             if self.tray_icon:
                 try:
-                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "eMail Assistant v1.4")
+                    self.tray_icon.notify("Ứng dụng đang chạy ngầm dưới khay hệ thống.", "eMail Assistant v1.6 - VNPT AI")
                 except Exception:
                     pass
 
